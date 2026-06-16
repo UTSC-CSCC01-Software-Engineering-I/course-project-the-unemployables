@@ -1,0 +1,24 @@
+services:
+  server:
+    build: ./server
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+    volumes:
+      - ./server/src:/app/src          # hot reload in dev
+      - ./CDMP-data:/app/data:ro       # donation CSV files (read-only)
+    environment:
+      - PORT=3001
+      - DATA_DIR=/app/data
+
+  client:
+    build: ./client
+    ports:
+      - "5173:5173"
+    depends_on:
+      - server
+    volumes:
+      - ./client/src:/app/src          # hot reload in dev
+    environment:
+      - API_URL=http://server:3001     # Vite proxy target inside Docker network
