@@ -4,7 +4,8 @@ services:
     ports:
       - "3001:3001"
     env_file:
-      - .env
+      - path: .env
+        required: false
     volumes:
       - ./server/src:/app/src          # hot reload in dev
       - ./CDMP-data:/app/data:ro       # donation CSV files (read-only)
