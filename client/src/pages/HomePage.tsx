@@ -32,22 +32,9 @@ const TOOL_CARDS: ToolCard[] = [
       "Direct side-by-side comparison of party funding sources, donation brackets, and contributor demographics across election cycles.",
     linkLabel: "Party Statistics",
   },
-  {
-    icon: History,
-    iconBg: "#fbe3d8",
-    iconColor: "#c3622f",
-    title: "Track Over Time",
-    description:
-      "Longitudinal data tracking from 1993 to present. Observe shifts in political financing and donor behaviour over decades.",
-    linkLabel: "Historical Trends",
-  },
 ];
 
-const GEO_FEATURES = [
-  "Heatmap and cluster visualizations",
-  "Individual riding data overlays",
-  "Cross-filter by donation size",
-];
+
 
 export function HomePage() {
   return (
@@ -112,14 +99,14 @@ export function HomePage() {
             Our map-based interface allows for intuitive discovery. See heatmaps of
             donation density across Canada and zoom in for individual riding details.
           </p>
-          <ul className="home-geo-list">
+          {/* <ul className="home-geo-list">
             {GEO_FEATURES.map((feature) => (
               <li key={feature}>
                 <CircleCheck size={15} strokeWidth={2} />
                 {feature}
               </li>
             ))}
-          </ul>
+          </ul> */}
           <Link to="/map" className="home-btn home-btn-primary">
             Launch Interactive Map
           </Link>
