@@ -1,0 +1,117 @@
+.site-footer {
+  background: #fff;
+  border-top: 1px solid #e7e9ec;
+  padding: 44px 40px 24px;
+}
+
+.site-footer-top {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr 1.2fr;
+  gap: 32px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding-bottom: 28px;
+}
+
+.site-footer-brand .site-footer-logo {
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #16202b;
+  margin-bottom: 12px;
+}
+
+.site-footer-brand p {
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: #8a93a0;
+  max-width: 240px;
+}
+
+.site-footer-col h4 {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #aab0b8;
+  margin-bottom: 14px;
+}
+
+.site-footer-col a {
+  display: block;
+  font-size: 13px;
+  color: #545c66;
+  text-decoration: none;
+  margin-bottom: 10px;
+}
+
+.site-footer-col a:hover {
+  color: #16202b;
+}
+
+.site-footer-form {
+  display: flex;
+  gap: 8px;
+}
+
+.site-footer-form input {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  padding: 8px 10px;
+  border: 1px solid #d6dadf;
+  border-radius: 7px;
+  background: #f8f9fb;
+  color: #16202b;
+}
+
+.site-footer-form input::placeholder {
+  color: #aab0b8;
+}
+
+.site-footer-form button {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #16202b;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.site-footer-form button:hover {
+  background: #2b333c;
+}
+
+.site-footer-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding-top: 20px;
+  border-top: 1px solid #f0f1f3;
+}
+
+.site-footer-bottom p {
+  font-size: 12px;
+  color: #aab0b8;
+}
+
+.site-footer-icons {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #aab0b8;
+}
+
+@media (max-width: 880px) {
+  .site-footer-top {
+    grid-template-columns: 1fr 1fr;
+  }
+}
