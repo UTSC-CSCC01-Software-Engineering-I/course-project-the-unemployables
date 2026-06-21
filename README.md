@@ -16,27 +16,3 @@ An interactive web application for exploring Canadian federal political donation
 | Tri | — | — |
 | Tareq | — | — |
 
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Language | TypeScript (client + server) |
-| Frontend | React 19 + Vite |
-| Backend | Express.js 5 |
-| Mapping | MapLibre GL JS via `mapcn` |
-| Styling | Tailwind CSS v3 + shadcn/ui compatible |
-| Containerization | Docker Compose |
-| Database (planned) | Supabase (PostgreSQL + PostGIS) |
-| Auth (planned) | Supabase Auth |
-
----
-
-## Design Documents
-
-- [Demo 1 Documentation](docs/Demo1Docs.md) — Project proposal, class diagram, Demo 1 status
-
----
-
-
