@@ -40,25 +40,4 @@ An interactive web application for exploring Canadian federal political donation
 
 ---
 
-## Running Locally
 
-### Without Docker
-
-```bash
-# Terminal 1 — server (port 3001)
-cd server && npm install && npm run dev
-
-# Terminal 2 — client (port 5173)
-cd client && npm install && npm run dev
-```
-
-Open `http://localhost:5173`
-
-
-```bash
-docker compose up --build
-```
-
-- `ridings.geojson` in `client/public/` (Elections Canada 45th General Election, 348 districts) is ready for a future electoral districts view.
-- **PostGIS** is planned inside Supabase/PostgreSQL for spatial queries (postal-code → riding lookups).
-- Province boundaries sourced from Statistics Canada 2021 Census cartographic boundary files, simplified via `mapshaper`.
