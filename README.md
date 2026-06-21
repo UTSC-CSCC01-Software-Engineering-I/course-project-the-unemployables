@@ -54,22 +54,10 @@ cd client && npm install && npm run dev
 
 Open `http://localhost:5173`
 
-### With Docker (for TAs / graders)
 
 ```bash
 docker compose up --build
 ```
-
-| Service | URL |
-|---|---|
-| Frontend | http://localhost:5173 |
-| API | http://localhost:3001 |
-
-> **Note (Mac):** macOS reserves port 5000 for AirPlay Receiver. This project uses **port 3001** for the server.
-
----
-
-## Notes
 
 - `ridings.geojson` in `client/public/` (Elections Canada 45th General Election, 348 districts) is ready for a future electoral districts view.
 - **PostGIS** is planned inside Supabase/PostgreSQL for spatial queries (postal-code → riding lookups).
