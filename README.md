@@ -8,11 +8,9 @@ An interactive web application for exploring Canadian federal political donation
 
 **Team Name:** The Unemployables
 
-| Name | GitHub | Email |
-|---|---|---|
-| Ayyash Anhardeen | @ayyashanhardeen | ayyashahmedanhardeen@gmail.com |
-| Akshayan | — | — |
-| Faris | — | — |
-| Tri | — | — |
-| Tareq | — | — |
+Ayyash
+Tareq
+Tri
+Akshayan
+Faris
 
