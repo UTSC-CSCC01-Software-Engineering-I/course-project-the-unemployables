@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Mail, LockKeyholeIcon, KeyIcon, Info, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Footer } from "@/components/layout/Footer";
-import './ResearchLogin.css'
+import './ResearcherLogin.css'
  
 export function ResearcherLoginUIpage() {
   const [email, setEmail] = useState("");
