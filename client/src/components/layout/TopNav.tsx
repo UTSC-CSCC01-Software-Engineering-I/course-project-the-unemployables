@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, Link } from "react-router-dom";
 import "./TopNav.css";
 
 const LINKS = [
@@ -27,9 +27,10 @@ export function TopNav() {
           ))}
         </nav>
       </div>
-      <button type="button" className="top-nav-login">
+
+      <Link to="/login" className="top-nav-login">
         Researcher Login
-      </button>
+      </Link>
     </header>
   );
 }
