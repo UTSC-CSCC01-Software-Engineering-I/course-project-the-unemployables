@@ -1,0 +1,239 @@
+.login-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #0f172a;
+    padding: 0 28px;
+    height: 52px;
+    flex-shrink: 0;
+}
+
+.login-topbar-brand {
+    color: #ffffff;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+.login-topbar-help {
+    color: #94a3b8;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 140ms ease;
+}
+
+.login-topbar-help:hover {
+    color: #ffffff;
+}
+
+.login-bg {
+    flex: 1;
+    background: #f1f5f9;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 16px 44px;
+    gap: 28px;
+}
+
+.login-card {
+    width: min(420px, 100%);
+    background: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.10);
+    padding: 40px 36px 36px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+}
+
+.login-icon-wrap {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: #102a43;
+    display: grid;
+    place-items: center;
+    margin-bottom: 20px;
+    flex-shrink: 0;
+}
+
+.login-heading-group {
+    text-align: center;
+    margin-bottom: 28px;
+}
+
+.login-title {
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: #102a43;
+    margin: 0 0 6px;
+}
+
+.login-subtitle {
+    font-size: 0.9rem;
+    color: #64748b;
+    margin: 0;
+}
+
+.login-fields {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.login-field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.login-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #334e68;
+}
+
+.login-label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.login-forgot {
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: #1e6f9f;
+    text-decoration: none;
+    transition: color 140ms ease;
+}
+
+.login-forgot:hover {
+    color: #0e8a73;
+}
+
+.login-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.login-input-icon {
+    position: absolute;
+    left: 12px;
+    color: #94a3b8;
+    pointer-events: none;
+    flex-shrink: 0;
+}
+
+.login-input {
+    width: 100%;
+    height: 42px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 0 12px 0 36px;
+    font-size: 0.9rem;
+    color: #102a43;
+    background: #ffffff;
+    outline: none;
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+    font-family: inherit;
+}
+
+.login-input::placeholder {
+    color: #94a3b8;
+}
+
+.login-input:focus {
+    border-color: #0e8a73;
+    box-shadow: 0 0 0 3px rgba(14, 138, 115, 0.12);
+}
+
+.login-button {
+    width: 100%;
+    height: 46px;
+    border: none;
+    border-radius: 8px;
+    background: #1a6b6b;
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 150ms ease, transform 150ms ease;
+    margin-bottom: 20px;
+}
+
+.login-button:hover {
+    background: #155858;
+    transform: translateY(-1px);
+}
+
+.login-button:active {
+    transform: translateY(0);
+}
+
+.login-divider {
+    width: 100%;
+    border: none;
+    border-top: 1px solid #e2e8f0;
+    margin: 0 0 18px;
+}
+
+.login-notice {
+    width: 100%;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    padding: 14px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.login-notice-icon {
+    color: #64748b;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.login-notice-text {
+    font-size: 0.85rem;
+    color: #475569;
+    line-height: 1.55;
+    margin: 0;
+}
+
+.login-public-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.875rem;
+    color: #475569;
+    text-decoration: none;
+    transition: color 140ms ease;
+}
+
+.login-public-link:hover {
+    color: #0e8a73;
+}
+
+/* might remove this since we have an existing footer but discuss with group
+   on keeping a custom, more minimal footer, just for this page */
+.login-footer {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    text-align: center;
+    padding-bottom: 4px;
+}
+
+.error {
+    font-size: 0.925rem;
+    color: #ff0000;
+    padding-bottom: 20px;
+}

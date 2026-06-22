@@ -1,25 +1,37 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { TopNav } from "./components/layout/TopNav";
 import { Sidebar } from "./components/layout/Sidebar";
 import { HomePage } from "./pages/HomePage";
 import { MapCNPage } from "./pages/MapCNPage";
+import { ResearcherLoginUIpage } from "./pages/ResearcherLogin";
 import "./App.css";
 
-function App() {
+function AppLayout() {
+  const location = useLocation();
+  const hideSidebarRoutes = ['/login'];
+  const shouldShowBar = !hideSidebarRoutes.includes(location.pathname);
+
   return (
-    <BrowserRouter>
       <div className="app">
-        <TopNav />
+        {shouldShowBar && <TopNav />}
         <div className="app-body">
-          <Sidebar />
+          {shouldShowBar && <Sidebar />}
           <main className="app-main">
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/map" element={<MapCNPage />} />
+              <Route path="/login" element={<ResearcherLoginUIpage />} />
             </Routes>
           </main>
         </div>
       </div>
+  );
+}
+
+export function App() {
+  return (
+    <BrowserRouter>
+      <AppLayout />
     </BrowserRouter>
   );
 }

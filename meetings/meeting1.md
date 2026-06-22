@@ -10,7 +10,7 @@ Faris: Make the landing page frontend a user sees when they enter the web app.
 
 Akshyan: Make the researcher login/signup frontend
 
-Tri: 
+Tri: Make the invalid filters pop up
 
 Tareq: Making the supabase project as well as initializing some tables required for the project
 

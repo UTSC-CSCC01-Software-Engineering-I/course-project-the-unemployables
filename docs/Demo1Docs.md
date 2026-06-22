@@ -30,6 +30,12 @@ classDiagram
         +render() : JSX
     }
 
+    class AppLayout {
+        -hideSidebarRoutes : string[]
+        -shouldShowBar : boolean
+        +render() : JSX
+    }
+
     class HomePage {
         -TOOL_CARDS : ToolCard[]
         +render() : JSX
@@ -60,6 +66,14 @@ classDiagram
         +render() : JSX
     }
 
+    class ResearcherLoginUIpage {
+        -email : string
+        -password : string
+        -isVisible : boolean
+        +handleSubmit() : void
+        +render() : JSX
+    }
+
     class mapcn {
         <<library>>
         +Map(center : number[], zoom : number, maxBounds : number[][], minZoom : number) : JSX
@@ -81,8 +95,10 @@ classDiagram
     %% ── Relationships ─────────────────────────────────────
 
     %% Composition: child cannot exist without parent
-    App *-- HomePage : route /
-    App *-- MapCNPage : route /map
+    App *-- AppLayout : renders
+    AppLayout *-- HomePage : route /
+    AppLayout *-- MapCNPage : route /map
+    AppLayout *-- ResearcherLoginUIpage : route /login
     HomePage *-- Footer : renders
     HomePage *-- CanadaSilhouette : renders
     HomePage "1" *-- "many" ToolCard : contains
