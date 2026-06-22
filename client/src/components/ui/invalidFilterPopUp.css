@@ -1,0 +1,68 @@
+.invalid-filter-popup-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 9999;
+	display: grid;
+	place-items: center;
+	background: rgba(15, 23, 42, 0.65);
+	padding: 24px;
+}
+
+.invalid-filter-popup {
+	width: min(420px, 100%);
+	background: #ffffff;
+	border-radius: 12px;
+	box-shadow: 0 24px 80px rgba(15, 23, 42, 0.18);
+	padding: 32px 28px;
+	text-align: center;
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+}
+
+.invalid-filter-popup-icon {
+	width: 56px;
+	height: 56px;
+	margin: 0 auto;
+	display: grid;
+	place-items: center;
+	border-radius: 50%;
+	background: #e6f4f1;
+	color: #0e8a73;
+	font-size: 1.75rem;
+}
+
+.invalid-filter-popup h3 {
+	margin: 0;
+	font-size: 1.25rem;
+	font-weight: 700;
+	color: #102a43;
+}
+
+.invalid-filter-popup p {
+	margin: 0;
+	color: #334e68;
+	font-size: 0.975rem;
+	line-height: 1.6;
+}
+
+.reset-filters-button {
+	border: none;
+	border-radius: 8px;
+	padding: 14px 24px;
+	font-size: 0.95rem;
+	font-weight: 700;
+	background: #0e8a73;
+	color: #ffffff;
+	cursor: pointer;
+	transition: background 150ms ease, transform 150ms ease;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+}
+
+.reset-filters-button:hover {
+	background: #0c7a65;
+	transform: translateY(-1px);
+}
