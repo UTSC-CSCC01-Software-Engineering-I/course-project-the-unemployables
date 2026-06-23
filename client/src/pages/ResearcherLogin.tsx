@@ -1,24 +1,42 @@
 import { useState } from "react";
 import { Mail, LockKeyholeIcon, KeyIcon, Info, ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Footer } from "@/components/layout/Footer";
+import { supabase } from "@/lib/supabase";
 import './ResearcherLogin.css'
- 
+
 export function ResearcherLoginUIpage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isVisible, setIsVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
- 
-  const handleSubmit = (e: React.MouseEvent<HTMLButtonElement>) => {
+
+  const handleSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     if (email === "" || password === "") {
       setIsVisible(true);
-      return;
-    } else {
-      setIsVisible(false);
+      setErrorMessage("Please enter your email and password.");
       return;
     }
+
+    setIsLoading(true);
+    setIsVisible(false);
+    setErrorMessage("");
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    setIsLoading(false);
+
+    if (error) {
+      setIsVisible(true);
+      setErrorMessage(error.message);
+      return;
+    }
+
+    navigate("/");
   };
  
   return (
@@ -88,14 +106,14 @@ export function ResearcherLoginUIpage() {
           </div>
  
           {/* submit button where the logic is handled in the handleSubmit function */}
-          <button className="login-button" onClick={handleSubmit}>
-            Log In
+          <button className="login-button" onClick={handleSubmit} disabled={isLoading}>
+            {isLoading ? "Logging in…" : "Log In"}
           </button>
 
           <hr className="login-divider" />
 
-          {/* error message if we have empty fields (currently) */}
-          {isVisible && <p className="error">Enter a valid username/password</p>}
+          {/* error message shown on failed login or empty fields */}
+          {isVisible && <p className="error">{errorMessage}</p>}
 
           <div className="login-notice">
             <Info size={15} strokeWidth={1.8} className="login-notice-icon" />
