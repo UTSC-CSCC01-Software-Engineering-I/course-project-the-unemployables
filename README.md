@@ -4,6 +4,31 @@ An interactive web application for exploring Canadian federal political donation
 
 ---
 
+## Local Setup
+
+1. **Clone the repo**
+   ```bash
+   git clone https://github.com/UTSC-CSCC01-Software-Engineering-I/course-project-the-unemployables.git
+   cd course-project-the-unemployables
+   ```
+
+2. **Get the environment file**
+   Contact the project lead for the `client/.env` credentials. Once you have them, create the file:
+   ```bash
+   cp client/.env.example client/.env
+   # then fill in the values you received
+   ```
+
+3. **Install dependencies and run the frontend**
+   ```bash
+   cd client
+   npm install
+   npm run dev
+   ```
+   The app will be available at `http://localhost:5173`.
+
+---
+
 ## Team Information
 
 **Team Name:** The Unemployables
