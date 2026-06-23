@@ -118,8 +118,8 @@ classDiagram
 - [x] Express API route structure (temp)
 - [x] Landing Page when users enters web app
 - [x] Researcher login/signup frontend
-
+- [x] Supabase Auth — researcher login/signup
 ## What Is Outstanding (moves to Demo 2)
 
 - [ ] Python ingestion script to load Elections Canada CSVs into Supabase
-- [ ] Supabase Auth — researcher login/signup
+
