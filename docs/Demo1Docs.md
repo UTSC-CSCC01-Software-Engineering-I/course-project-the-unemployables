@@ -37,28 +37,6 @@ classDiagram
     }
 
     class HomePage {
-        -TOOL_CARDS : ToolCard[]
-        +render() : JSX
-    }
-
-    class ToolCard {
-        <<interface>>
-        +icon : LucideIcon
-        +iconBg : string
-        +iconColor : string
-        +title : string
-        +description : string
-        +linkLabel : string
-    }
-
-    class Footer {
-        +render() : JSX
-    }
-
-    class CanadaSilhouette {
-        +fill : string
-        +opacity : number
-        +className : string
         +render() : JSX
     }
 
@@ -66,7 +44,7 @@ classDiagram
         +render() : JSX
     }
 
-    class ResearcherLoginUIpage {
+    class ResearcherLoginPage {
         -email : string
         -password : string
         -isVisible : boolean
@@ -80,32 +58,25 @@ classDiagram
         +MapControls(position : string, showZoom : boolean, showCompass : boolean) : JSX
     }
 
-    %% ── Backend (stubbed) ────────────────────────────────
+    %% ── Backend ──────────────────────────────────────────
 
     class ExpressServer {
         +listen() : void
     }
 
     class DonationsRouter {
-        <<stub>>
         +getSummary() : DonationSummary[]
         +getDonations() : Donation[]
     }
 
     %% ── Relationships ─────────────────────────────────────
 
-    %% Composition: child cannot exist without parent
-    App *-- AppLayout : renders
+    App *-- AppLayout
     AppLayout *-- HomePage : route /
     AppLayout *-- MapCNPage : route /map
-    AppLayout *-- ResearcherLoginUIpage : route /login
-    HomePage *-- Footer : renders
-    HomePage *-- CanadaSilhouette : renders
-    HomePage "1" *-- "many" ToolCard : contains
-    ExpressServer *-- DonationsRouter : registers
-
-    %% Dependency: MapCNPage calls mapcn Map with props
-    MapCNPage ..> mapcn : instantiates Map + MapControls
+    AppLayout *-- ResearcherLoginPage : route /login
+    ExpressServer *-- DonationsRouter
+    MapCNPage ..> mapcn
 ```
 
 ---
