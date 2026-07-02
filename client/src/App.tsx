@@ -3,6 +3,7 @@ import { TopNav } from "./components/layout/TopNav";
 import { Sidebar } from "./components/layout/Sidebar";
 import { HomePage } from "./pages/HomePage";
 import { MapCNPage } from "./pages/MapCNPage";
+import { DonationTrendsPage } from "./pages/DonationTrendsPage";
 import { ResearcherLoginUIpage } from "./pages/ResearcherLogin";
 import "./App.css";
 
@@ -20,6 +21,7 @@ function AppLayout() {
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/map" element={<MapCNPage />} />
+              <Route path="/donation-trends" element={<DonationTrendsPage />} />
               <Route path="/login" element={<ResearcherLoginUIpage />} />
             </Routes>
           </main>
