@@ -12,16 +12,12 @@ An interactive web application for exploring Canadian federal political donation
    cd course-project-the-unemployables
    ```
 
-2. **Set up environment files**
+2. **Set up environment file**
    Contact the project lead for credentials, then:
    ```bash
-   # Root .env — server-side Supabase service key
    cp .env.example .env
-
-   # client/.env — Vite/browser Supabase anon key
-   cp client/.env.example client/.env
+   # fill in the values you received
    ```
-   Fill in the values you received in both files.
 
 3. **Install dependencies and run**
 

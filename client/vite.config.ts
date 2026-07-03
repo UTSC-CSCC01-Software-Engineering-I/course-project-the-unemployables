@@ -4,6 +4,7 @@ import path from "path";
 
 export default defineConfig({
   plugins: [react()],
+  envDir: "..", // read .env from repo root instead of client/
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
   },

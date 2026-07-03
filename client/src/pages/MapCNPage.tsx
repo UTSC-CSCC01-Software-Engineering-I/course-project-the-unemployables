@@ -29,8 +29,8 @@ const PARTY_COLORS: Record<string, string> = {
   PPC: "#4b306a",
 };
 
-// YlOrRd-inspired: pale cream → golden → orange → deep red
-const CHOROPLETH_STEPS = ["#fff7ec", "#fee8c8", "#fdd49e", "#fdbb84", "#fc8d59", "#e34a33", "#b30000"];
+// Green sequential: pale mint → deep forest green
+const CHOROPLETH_STEPS = ["#edf8e9", "#c7e9c0", "#a1d99b", "#74c476", "#41ab5d", "#238b45", "#005a20"];
 
 function amountToColor(amount: number, max: number): string {
   const t = Math.sqrt(amount / max);
@@ -139,7 +139,7 @@ function BoundaryLayer({
     for (const p of provinceData) {
       matchExpr.push(p.province, amountToColor(p.totalMonetary, max));
     }
-    matchExpr.push("#fff7ec"); // default (lightest step)
+    matchExpr.push("#edf8e9"); // default (lightest step)
 
     map.setPaintProperty("boundary-fill", "fill-color", matchExpr);
     map.setPaintProperty("boundary-fill", "fill-opacity", 0.75);
