@@ -1,4 +1,5 @@
 # Dependencies
+venv/
 node_modules/
 client/node_modules/
 server/node_modules/
@@ -23,3 +24,16 @@ npm-debug.log*
 # Data files — too large for git; share separately
 CDMP-data/donation/raw/
 CDMP-data/donation/processed/
+CDMP-data/lpr_000b21a_e/
+CDMP-data/SHP/
+
+# Raw boundary source files (keep processed GeoJSONs in client/public/ only)
+*.zip
+*.shp
+*.dbf
+*.prj
+*.shx
+*.cpg
+
+# Ingestion progress tracker
+scripts/.ingest_progress.json
