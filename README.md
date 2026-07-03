@@ -12,20 +12,27 @@ An interactive web application for exploring Canadian federal political donation
    cd course-project-the-unemployables
    ```
 
-2. **Get the environment file**
-   Contact the project lead for the `client/.env` credentials. Once you have them, create the file:
+2. **Set up environment files**
+   Contact the project lead for credentials, then:
    ```bash
-   cp client/.env.example client/.env
-   # then fill in the values you received
-   ```
+   # Root .env — server-side Supabase service key
+   cp .env.example .env
 
-3. **Install dependencies and run the frontend**
-   ```bash
-   cd client
-   npm install
-   npm run dev
+   # client/.env — Vite/browser Supabase anon key
+   cp client/.env.example client/.env
    ```
-   The app will be available at `http://localhost:5173`.
+   Fill in the values you received in both files.
+
+3. **Install dependencies and run**
+
+   ```bash
+   # Terminal 1 — server (port 3001)
+   cd server && npm install && npm run dev
+
+   # Terminal 2 — client (port 5173)
+   cd client && npm install && npm run dev
+   ```
+   Open `http://localhost:5173`
 
 ---
 
@@ -46,7 +53,7 @@ An interactive web application for exploring Canadian federal political donation
 ## Design Documents
 
 - [Demo 1 Documentation](docs/Demo1Docs.md) — Project proposal, class diagram, Demo 1 status
-- [Meeting Minutes](meetings/meeting1.md)
+- [Meeting Minutes](meetings/meetings.md)
 
 ---
 
@@ -60,7 +67,7 @@ An interactive web application for exploring Canadian federal political donation
 | Mapping | MapLibre GL JS via `mapcn` |
 | Styling | Tailwind CSS v3 + shadcn/ui compatible |
 | Containerization | Docker + Docker Compose |
-| Database (planned) | Supabase (PostgreSQL + PostGIS) |
+| Database | Supabase (PostgreSQL) — 5.4M donation rows (2004–2024) |
 | Auth | Supabase Auth |
 
 ---
@@ -91,5 +98,3 @@ cd client && npm install && npm run dev
 Open `http://localhost:5173`
 
 ---
-
-
