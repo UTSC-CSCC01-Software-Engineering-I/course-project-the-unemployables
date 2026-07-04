@@ -60,6 +60,7 @@ function BoundaryLayer({
 
     const url = mode === "provinces" ? "/provinces.geojson" : "/ridings.geojson";
     const baseColor = mode === "provinces" ? "#2d9268" : "#4452c4";
+    const lineColor = mode === "provinces" ? "#1a3a2a" : "#2a3060";
     const lineWidth = mode === "provinces" ? 1.5 : 0.6;
 
     let hoveredId: number | string | null = null;
@@ -87,7 +88,7 @@ function BoundaryLayer({
       id: lineId,
       type: "line",
       source: sourceId,
-      paint: { "line-color": baseColor, "line-width": lineWidth, "line-opacity": 0.7 },
+      paint: { "line-color": lineColor, "line-width": lineWidth, "line-opacity": 0.9 },
     });
 
     const onMouseMove = (e: { features?: { id?: number | string }[] }) => {
