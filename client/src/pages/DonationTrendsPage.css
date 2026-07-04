@@ -74,6 +74,19 @@
   width: 100%;
 }
 
+.trends-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 440px;
+  font-size: 14px;
+  color: #7a828c;
+}
+
+.trends-state-error {
+  color: #c0392b;
+}
+
 .trends-chart-wrap .recharts-cartesian-axis-tick text {
   font-family: inherit;
 }

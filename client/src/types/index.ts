@@ -48,3 +48,13 @@ export interface SummaryResponse {
   data: DonationSummary[];
   filters: DonationFilters;
 }
+
+export interface DonationYearPartySum {
+  year: number;
+  party: string;
+  total: number;
+}
+
+export interface YearPartySumResponse {
+  data: DonationYearPartySum[];
+}

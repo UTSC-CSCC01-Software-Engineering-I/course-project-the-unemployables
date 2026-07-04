@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   LineChart,
   Line,
@@ -8,38 +8,39 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { fetchDonationSumByYearParty } from "../api/donations";
+import type { DonationYearPartySum } from "../types/index";
 import "./DonationTrendsPage.css";
 
-/** Party metadata (dummy — swap for real data later). */
-const PARTIES = [
-  { code: "LPC", label: "Liberal", color: "#d71920" },
-  { code: "CPC", label: "Conservative", color: "#1a4782" },
-  { code: "NDP", label: "New Democratic", color: "#f37021" },
-  { code: "GPC", label: "Green", color: "#3d9b35" },
-  { code: "BQ", label: "Bloc Québécois", color: "#33b2cc" },
-  { code: "PPC", label: "People's", color: "#442d7b" },
-] as const;
-
-type PartyCode = (typeof PARTIES)[number]["code"];
-
-const YEARS = [2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025];
-
-/** Dummy yearly contribution totals (in dollars) per party. */
-const RAW: Record<PartyCode, number[]> = {
-  LPC: [16.2, 11.2, 8.9, 3.1, 6.8, 3.4, 3.6, 4.6, 8.3, 3.2, 5.1, 2.3],
-  CPC: [16.1, 5.1, 16.4, 7.0, 13.8, 8.5, 6.7, 14.9, 21.2, 14.7, 14.3, 8.2],
-  NDP: [7.1, 3.2, 4.8, 2.9, 7.1, 3.9, 4.1, 5.3, 9.0, 4.1, 5.4, 3.6],
-  GPC: [0.9, 0.5, 0.6, 0.8, 1.3, 1.2, 1.4, 1.9, 2.6, 1.8, 2.3, 1.2],
-  BQ: [0.4, 0.3, 0.4, 0.5, 0.9, 0.7, 1.0, 1.3, 1.5, 1.1, 1.2, 0.6],
-  PPC: [0, 0, 0, 0, 0.2, 0.3, 0.4, 0.6, 0.8, 0.5, 0.4, 0.2],
+/** Line colors — purely presentational. The list of parties itself comes from
+ *  the API data (not this map); known parties get a brand color, anything else
+ *  falls back to the palette below. */
+const PARTY_COLORS: Record<string, string> = {
+  LPC: "#d71920",
+  CPC: "#1a4782",
+  NDP: "#f37021",
+  GPC: "#3d9b35",
+  BQ: "#33b2cc",
+  PPC: "#442d7b",
 };
+const FALLBACK_COLORS = ["#8e6c8a", "#3a8fb7", "#c9436f", "#6b8f3a", "#b0983d", "#5a6acf"];
 
-/** Reshape into Recharts' row-per-year format: [{ year, LPC, CPC, ... }]. */
-const CHART_DATA = YEARS.map((year, i) => {
-  const row: { year: number } & Partial<Record<PartyCode, number>> = { year };
-  for (const p of PARTIES) row[p.code] = RAW[p.code][i] * 1e6;
-  return row;
-});
+type ChartRow = { year: number } & Partial<Record<string, number>>;
+
+/** Reshape API rows into Recharts' row-per-year format: [{ year, LPC, CPC, ... }]. */
+function toChartRows(rows: DonationYearPartySum[]): ChartRow[] {
+  const byYear = new Map<number, ChartRow>();
+  for (const r of rows) {
+    let row = byYear.get(r.year);
+    if (!row) {
+      row = { year: r.year };
+      byYear.set(r.year, row);
+    }
+    // Postgres numeric can arrive as a string; coerce to number.
+    row[r.party] = Number(r.total);
+  }
+  return [...byYear.values()].sort((a, b) => a.year - b.year);
+}
 
 function formatMoney(v: number): string {
   if (v >= 1e6) return `$${(v / 1e6).toFixed(v % 1e6 === 0 ? 0 : 1)}M`;
@@ -50,7 +51,7 @@ function formatMoney(v: number): string {
 interface TooltipProps {
   active?: boolean;
   label?: number;
-  payload?: { dataKey: PartyCode; value: number; color: string }[];
+  payload?: { dataKey: string; value: number; color: string }[];
 }
 
 function ChartTooltip({ active, label, payload }: TooltipProps) {
@@ -60,9 +61,14 @@ function ChartTooltip({ active, label, payload }: TooltipProps) {
       <div className="trends-tooltip-year">{label}</div>
       {payload.map((entry) => (
         <div key={entry.dataKey} className="trends-tooltip-row">
-          <span className="trends-legend-swatch" style={{ background: entry.color }} />
+          <span
+            className="trends-legend-swatch"
+            style={{ background: entry.color }}
+          />
           <span className="trends-tooltip-name">{entry.dataKey}</span>
-          <span className="trends-tooltip-value">{formatMoney(entry.value)}</span>
+          <span className="trends-tooltip-value">
+            {formatMoney(entry.value)}
+          </span>
         </div>
       ))}
     </div>
@@ -70,9 +76,56 @@ function ChartTooltip({ active, label, payload }: TooltipProps) {
 }
 
 export function DonationTrendsPage() {
-  const [hidden, setHidden] = useState<Set<PartyCode>>(new Set());
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [chartData, setChartData] = useState<ChartRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const toggle = (code: PartyCode) =>
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetchDonationSumByYearParty()
+      .then((res) => {
+        if (!cancelled) {
+          setChartData(toChartRows(res.data));
+          setError(null);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load data");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const yearRange = useMemo(() => {
+    if (chartData.length === 0) return null;
+    return { first: chartData[0].year, last: chartData[chartData.length - 1].year };
+  }, [chartData]);
+
+  // Party list is derived from the data, not hardcoded.
+  const parties = useMemo(() => {
+    const seen = new Set<string>();
+    for (const row of chartData) {
+      for (const key of Object.keys(row)) if (key !== "year") seen.add(key);
+    }
+    return [...seen].sort();
+  }, [chartData]);
+
+  // Stable color per party (brand color if known, else palette by index).
+  const partyColor = useMemo(() => {
+    const map: Record<string, string> = {};
+    parties.forEach((p, i) => {
+      map[p] = PARTY_COLORS[p] ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length];
+    });
+    return map;
+  }, [parties]);
+
+  const toggle = (code: string) =>
     setHidden((prev) => {
       const next = new Set(prev);
       next.has(code) ? next.delete(code) : next.add(code);
@@ -83,30 +136,46 @@ export function DonationTrendsPage() {
     <div className="trends">
       <header className="trends-header">
         <h1>Donation Trends</h1>
-        <p>Total political contributions by party, {YEARS[0]}–{YEARS[YEARS.length - 1]}.</p>
+        <p>
+          Total political contributions by party
+          {yearRange ? `, ${yearRange.first}–${yearRange.last}` : ""}.
+        </p>
       </header>
 
       <div className="trends-card">
         <div className="trends-legend">
-          {PARTIES.map((p) => {
-            const off = hidden.has(p.code);
+          {parties.map((party) => {
+            const off = hidden.has(party);
             return (
               <button
-                key={p.code}
+                key={party}
                 type="button"
                 className={"trends-legend-item" + (off ? " off" : "")}
-                onClick={() => toggle(p.code)}
+                onClick={() => toggle(party)}
               >
-                <span className="trends-legend-swatch" style={{ background: off ? "#c4c9d0" : p.color }} />
-                {p.code}
+                <span
+                  className="trends-legend-swatch"
+                  style={{ background: off ? "#c4c9d0" : partyColor[party] }}
+                />
+                {party}
               </button>
             );
           })}
         </div>
 
         <div className="trends-chart-wrap">
+          {loading ? (
+            <div className="trends-state">Loading donation trends…</div>
+          ) : error ? (
+            <div className="trends-state trends-state-error">{error}</div>
+          ) : chartData.length === 0 ? (
+            <div className="trends-state">No donation data available.</div>
+          ) : (
           <ResponsiveContainer width="100%" height={440}>
-            <LineChart data={CHART_DATA} margin={{ top: 16, right: 24, bottom: 8, left: 8 }}>
+            <LineChart
+              data={chartData}
+              margin={{ top: 16, right: 24, bottom: 8, left: 8 }}
+            >
               <CartesianGrid stroke="#eceef1" vertical={false} />
               <XAxis
                 dataKey="year"
@@ -122,20 +191,23 @@ export function DonationTrendsPage() {
                 width={64}
               />
               <Tooltip content={<ChartTooltip />} />
-              {PARTIES.filter((p) => !hidden.has(p.code)).map((p) => (
-                <Line
-                  key={p.code}
-                  type="monotone"
-                  dataKey={p.code}
-                  stroke={p.color}
-                  strokeWidth={2.5}
-                  dot={false}
-                  activeDot={{ r: 4, strokeWidth: 2, fill: "#fff" }}
-                  isAnimationActive={false}
-                />
-              ))}
+              {parties
+                .filter((party) => !hidden.has(party))
+                .map((party) => (
+                  <Line
+                    key={party}
+                    type="monotone"
+                    dataKey={party}
+                    stroke={partyColor[party]}
+                    strokeWidth={2.5}
+                    dot={false}
+                    activeDot={{ r: 4, strokeWidth: 2, fill: "#fff", stroke: partyColor[party] }}
+                    isAnimationActive={false}
+                  />
+                ))}
             </LineChart>
           </ResponsiveContainer>
+          )}
         </div>
       </div>
     </div>

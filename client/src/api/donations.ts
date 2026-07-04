@@ -3,6 +3,7 @@ import type {
   PaginatedResponse,
   Donation,
   SummaryResponse,
+  YearPartySumResponse,
 } from "../types/index";
 
 const BASE = "/api";
@@ -33,4 +34,10 @@ export async function fetchDonations(
   const res = await fetch(`${BASE}/donations${buildQuery(filters)}`);
   if (!res.ok) throw new Error(`Failed to fetch donations: ${res.status}`);
   return res.json() as Promise<PaginatedResponse<Donation>>;
+}
+
+export async function fetchDonationSumByYearParty(): Promise<YearPartySumResponse> {
+  const res = await fetch(`${BASE}/donations/sum-by-year-party`);
+  if (!res.ok) throw new Error(`Failed to fetch donation trends: ${res.status}`);
+  return res.json() as Promise<YearPartySumResponse>;
 }
