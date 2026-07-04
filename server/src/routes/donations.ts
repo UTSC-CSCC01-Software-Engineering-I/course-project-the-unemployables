@@ -1,6 +1,10 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import type { DonationFilters, Party, Province } from "../types/index";
+import type {
+  DonationFilters,
+  Party,
+  Province,
+} from "../types/index";
 
 const router = Router();
 

@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import donationsRouter from "./routes/donations";
+import trendsRouter from "./routes/trends";
 
 const app = express();
 
@@ -13,6 +14,7 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api/donations", donationsRouter);
+app.use("/api/donations", trendsRouter);
 
 const PORT = Number(process.env["PORT"] ?? 3001);
 

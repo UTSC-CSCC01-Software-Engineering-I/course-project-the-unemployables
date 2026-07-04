@@ -37,3 +37,9 @@ export interface DonationFilters {
   province?: Province;
   postalCode?: string;
 }
+
+export interface DonationYearPartySum {
+  year: number;
+  party: string;
+  total: number;
+}
