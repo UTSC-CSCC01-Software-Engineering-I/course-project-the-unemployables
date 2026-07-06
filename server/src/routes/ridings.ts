@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { getSupabase } from "../lib/supabase";
+import { groupByRiding } from "../utils/groupings";
 
 const router = Router();
 
@@ -29,35 +30,7 @@ router.get("/summary", async (req: Request, res: Response) => {
     from += PAGE;
   }
 
-  const byRiding: Record<string, {
-    fedNum: number;
-    totalMonetary: number;
-    donationCount: number;
-    donorCount: number;
-    byParty: { party: string; totalMonetary: number; donationCount: number }[];
-  }> = {};
-
-  for (const row of allRows) {
-    const key = String(row.fed_num);
-    if (!byRiding[key]) {
-      byRiding[key] = {
-        fedNum: row.fed_num,
-        totalMonetary: 0,
-        donationCount: 0,
-        donorCount: Number(row.donor_count),
-        byParty: [],
-      };
-    }
-    byRiding[key].totalMonetary += Number(row.total_monetary);
-    byRiding[key].donationCount += Number(row.donation_count);
-    byRiding[key].byParty.push({
-      party: row.party,
-      totalMonetary: Number(row.total_monetary),
-      donationCount: Number(row.donation_count),
-    });
-  }
-
-  res.json({ data: Object.values(byRiding), year });
+  res.json({ data: groupByRiding(allRows), year });
 });
 
 export default router;
