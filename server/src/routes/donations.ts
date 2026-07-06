@@ -33,7 +33,7 @@ function sendValidationError(res: Response, errors: Array<{ field: string; messa
 
 // validate the filters from the query parameters, returning an array of errors if any validation fails.
 // Will probably need to build upon this in future demos
-function validateFilters(query: Request["query"]) {
+export function validateFilters(query: Request["query"]) {
   const errors: Array<{ field: string; message: string }> = [];
   const amountMin = parseNumber(query.amountMin);
   const amountMax = parseNumber(query.amountMax);
@@ -103,7 +103,7 @@ async function logAccess(
 // Matches what buildQuery() in api/donations.ts sends: year, party, province,
 // postalCode, donorName, firstName, lastName, dateFrom, dateTo, amountMin, amountMax,
 // politicalParty, page, limit.
-function readFiltersFromQuery(query: Request["query"]) {
+export function readFiltersFromQuery(query: Request["query"]) {
   return {
     donorName: typeof query.donorName === "string" && query.donorName.trim() ? query.donorName.trim() : undefined,
     firstName: typeof query.firstName === "string" && query.firstName.trim() ? query.firstName.trim() : undefined,
