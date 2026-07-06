@@ -8,7 +8,7 @@ import type {
 const BASE = "/api";
 
 // Build a query string from the provided filters, returning a string that can be added to a URL.
-function buildQuery(filters: DonationFilters & { page?: number; limit?: number }): string {
+export function buildQuery(filters: DonationFilters & { page?: number; limit?: number }): string {
   const params = new URLSearchParams();
   if (filters.year !== undefined) params.set("year", String(filters.year));
   if (filters.party) params.set("party", filters.party);
