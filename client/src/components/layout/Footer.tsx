@@ -1,4 +1,4 @@
-import { Globe, Rss, Send } from "lucide-react";
+import { Globe, Rss } from "lucide-react";
 import "./Footer.css";
 
 export function Footer() {

@@ -1,4 +1,4 @@
-import { ArrowRight, MapPinned, Scale, History, CircleCheck } from "lucide-react";
+import { ArrowRight, MapPinned, Scale } from "lucide-react";
 import { Link } from "react-router-dom";
 import { CanadaSilhouette } from "@/assets/CanadaSilhouette";
 import { Footer } from "@/components/layout/Footer";
