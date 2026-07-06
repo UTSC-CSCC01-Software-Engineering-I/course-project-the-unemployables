@@ -17,6 +17,8 @@ export interface Donation {
   clientId: string;
   contributorLastName: string;
   contributorFirstName: string;
+  contributionAmount?: number;
+  recipientName?: string;
   city: string;
   province: Province;
   postalCode: string;
@@ -35,6 +37,15 @@ export interface DonationFilters {
   party?: Party;
   province?: Province;
   postalCode?: string;
+  firstName?: string;
+  lastName?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  amountMin?: number;
+  amountMax?: number;
+  politicalParty?: string;
+  page?: number;
+  limit?: number;
 }
 
 export interface PaginatedResponse<T> {
@@ -42,6 +53,7 @@ export interface PaginatedResponse<T> {
   page: number;
   limit: number;
   total: number;
+  filters: DonationFilters;
 }
 
 export interface SummaryResponse {
