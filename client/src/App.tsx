@@ -3,6 +3,7 @@ import { TopNav } from "./components/layout/TopNav";
 import { Sidebar } from "./components/layout/Sidebar";
 import { HomePage } from "./pages/HomePage";
 import { MapCNPage } from "./pages/MapCNPage";
+import { RidingLookupPage } from "./pages/RidingLookupPage";
 import { ResearcherLoginUIpage } from "./pages/ResearcherLogin";
 import { ResearcherDashboardPage } from "./pages/ResearcherDashboardPage";
 import "./App.css";
@@ -23,6 +24,7 @@ function AppLayout() {
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/map" element={<MapCNPage />} />
+              <Route path="/riding-lookup" element={<RidingLookupPage />} />
               <Route path="/login" element={<ResearcherLoginUIpage />} />
               <Route path="/advanced-filters" element={<ResearcherDashboardPage />} />
             </Routes>

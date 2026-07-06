@@ -60,3 +60,29 @@ export interface SummaryResponse {
   data: DonationSummary[];
   filters: DonationFilters;
 }
+
+export interface RidingPartyBreakdown {
+  party: string;
+  totalMonetary: number;
+  donationCount: number;
+  donorCount: number;
+}
+
+export interface RidingYearSummary {
+  year: number;
+  totalMonetary: number;
+  donationCount: number;
+  donorCount: number;
+  byParty: RidingPartyBreakdown[];
+}
+
+export interface RidingSummary {
+  fedNum: number;
+  allTime: {
+    totalMonetary: number;
+    donationCount: number;
+    donorCount: number;
+    byParty: RidingPartyBreakdown[];
+  };
+  byYear: RidingYearSummary[];
+}

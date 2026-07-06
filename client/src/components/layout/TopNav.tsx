@@ -47,7 +47,7 @@ export function TopNav() {
   return (
     <header className="top-nav">
       <div className="top-nav-left">
-        <span className="top-nav-logo">CDMP</span>
+        <Link to="/" className="top-nav-logo">CDMP</Link>
         <nav className="top-nav-links">
           {LINKS.map((link) => (
             <NavLink
