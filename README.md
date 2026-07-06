@@ -18,6 +18,9 @@ An interactive web application for exploring Canadian federal political donation
    cp .env.example .env
    # fill in the values you received
    ```
+   The `.env` file has two sets of credentials:
+   - `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` — needed to run the frontend
+   - `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` — needed to run the server and Python scripts (e.g. `scripts/normalize_provinces.py`)
 
 3. **Install dependencies and run**
 
