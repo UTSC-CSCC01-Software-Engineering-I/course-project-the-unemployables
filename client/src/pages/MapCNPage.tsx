@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Map, MapControls, useMap } from "@/components/ui/map";
 import { InvalidFilterPopUp } from "@/components/ui/invalidFilterPopUp";
-import { X } from "lucide-react";
+import { X, CalendarRange, ChevronDown } from "lucide-react";
 import "./MapCNPage.css";
 
 type BoundaryMode = "provinces" | "ridings";
@@ -17,6 +17,9 @@ type RegionSummary = {
 };
 
 const API = "http://localhost:3001";
+
+// Donation data covers 2004-2024 per CDMP-data/README.md
+const YEARS = Array.from({ length: 2024 - 2004 + 1 }, (_, i) => 2024 - i);
 
 const PARTY_COLORS: Record<string, string> = {
   LPC: "#d71920",
@@ -128,6 +131,8 @@ export function MapCNPage() {
   const [year, setYear] = useState(2022);
   const [regionData, setRegionData] = useState<RegionSummary[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
+  const yearDropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedData = regionData.find(r => r.key === selected?.code) ?? null;
 
@@ -156,6 +161,22 @@ export function MapCNPage() {
       .finally(() => setLoading(false));
   }, [year, mode]);
 
+  // Close the year dropdown on outside click.
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (yearDropdownRef.current && !yearDropdownRef.current.contains(e.target as Node)) {
+        setIsYearDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  function selectYear(y: number) {
+    setYear(y);
+    setIsYearDropdownOpen(false);
+  }
+
   return (
     <div className="map-page">
       <InvalidFilterPopUp />
@@ -170,11 +191,32 @@ export function MapCNPage() {
           </button>
         </div>
 
-        <select className="map-year-select" value={year} onChange={e => setYear(Number(e.target.value))}>
-          {Array.from({ length: 2024 - 2004 + 1 }, (_, i) => 2004 + i).reverse().map(y => (
-            <option key={y} value={y}>{y}</option>
-          ))}
-        </select>
+        <div className="map-year-picker" ref={yearDropdownRef}>
+            <button
+              type="button"
+              className="map-year-picker-button"
+              onClick={() => setIsYearDropdownOpen(o => !o)}
+            >
+              <CalendarRange size={15} />
+              <span>{year}</span>
+              <ChevronDown size={14} />
+            </button>
+
+            {isYearDropdownOpen && (
+              <div className="map-year-dropdown">
+                {YEARS.map(y => (
+                  <button
+                    key={y}
+                    type="button"
+                    className={"map-year-option" + (year === y ? " map-year-option--active" : "")}
+                    onClick={() => selectYear(y)}
+                  >
+                    {y}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
       </div>
 
       <div className="map-layout">
