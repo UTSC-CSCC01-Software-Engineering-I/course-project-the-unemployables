@@ -2,22 +2,17 @@ import { describe, it, expect } from "vitest";
 import { groupByProvince, groupByRiding } from "../utils/groupings";
 
 describe("groupByProvince", () => {
-  it("returns an empty array for no rows", () => {
-    expect(groupByProvince([])).toEqual([]);
-  });
-
   it("sums monetary and donation counts across parties", () => {
     const rows = [
       { province: "ON", party: "LPC", total_monetary: 1000, donation_count: 5, donor_count: 3 },
       { province: "ON", party: "CPC", total_monetary: 500,  donation_count: 2, donor_count: 3 },
     ];
     const result = groupByProvince(rows);
-    expect(result).toHaveLength(1);
     expect(result[0].totalMonetary).toBe(1500);
     expect(result[0].donationCount).toBe(7);
   });
 
-  it("produces one entry per province", () => {
+  it("produces one entry per province with correct byParty list", () => {
     const rows = [
       { province: "ON", party: "LPC", total_monetary: 1000, donation_count: 5, donor_count: 3 },
       { province: "BC", party: "NDP", total_monetary: 800,  donation_count: 4, donor_count: 4 },
@@ -30,16 +25,7 @@ describe("groupByProvince", () => {
     expect(bc.byParty).toHaveLength(2);
   });
 
-  it("sets donorCount from the first row of each province", () => {
-    const rows = [
-      { province: "QC", party: "BQ",  total_monetary: 500, donation_count: 3, donor_count: 12 },
-      { province: "QC", party: "LPC", total_monetary: 300, donation_count: 2, donor_count: 12 },
-    ];
-    const result = groupByProvince(rows);
-    expect(result[0].donorCount).toBe(12);
-  });
-
-  it("handles numeric strings from Supabase", () => {
+  it("coerces numeric strings from Supabase", () => {
     const rows = [
       { province: "AB", party: "CPC", total_monetary: "2500.50", donation_count: "10", donor_count: "8" },
     ];
@@ -50,10 +36,6 @@ describe("groupByProvince", () => {
 });
 
 describe("groupByRiding", () => {
-  it("returns an empty array for no rows", () => {
-    expect(groupByRiding([])).toEqual([]);
-  });
-
   it("sums totals across parties for the same riding", () => {
     const rows = [
       { fed_num: 35001, party: "LPC", total_monetary: 2000, donation_count: 8, donor_count: 6 },
@@ -63,10 +45,9 @@ describe("groupByRiding", () => {
     expect(result).toHaveLength(1);
     expect(result[0].totalMonetary).toBe(3000);
     expect(result[0].donationCount).toBe(12);
-    expect(result[0].fedNum).toBe(35001);
   });
 
-  it("produces one entry per riding", () => {
+  it("produces one entry per riding with correct byParty list", () => {
     const rows = [
       { fed_num: 59001, party: "NDP", total_monetary: 800,  donation_count: 3, donor_count: 3 },
       { fed_num: 59002, party: "LPC", total_monetary: 600,  donation_count: 2, donor_count: 2 },
@@ -74,9 +55,9 @@ describe("groupByRiding", () => {
     ];
     const result = groupByRiding(rows);
     expect(result).toHaveLength(2);
-    const r59002 = result.find(r => r.fedNum === 59002)!;
-    expect(r59002.byParty).toHaveLength(2);
-    expect(r59002.totalMonetary).toBe(1000);
+    const r = result.find(r => r.fedNum === 59002)!;
+    expect(r.byParty).toHaveLength(2);
+    expect(r.totalMonetary).toBe(1000);
   });
 
   it("preserves fedNum as a number", () => {

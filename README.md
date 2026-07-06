@@ -49,6 +49,7 @@ An interactive web application for exploring Canadian federal political donation
 ## Design Documents
 
 - [Demo 1 Documentation](docs/Demo1Docs.md) — Project proposal, class diagram, Demo 1 status
+- [Demo 2 Documentation](docs/Demo2Docs.md) — Updated class diagram, Demo 2 status
 - [Meeting Minutes](meetings/meetings.md)
 
 ---
