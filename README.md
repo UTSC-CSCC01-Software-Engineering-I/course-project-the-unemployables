@@ -94,3 +94,15 @@ cd client && npm install && npm run dev
 Open `http://localhost:5173`
 
 ---
+
+## Running Tests
+
+```bash
+# Server tests (grouping logic)
+cd server && npm test
+
+# Client tests (map utility functions)
+cd client && npm test
+```
+
+---

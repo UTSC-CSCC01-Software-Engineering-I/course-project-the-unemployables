@@ -34,6 +34,12 @@ CDMP-data/SHP/
 *.prj
 *.shx
 *.cpg
+*.sbn
+*.sbx
+FED_CA_2021_EN/
+
+# Postal code lookup (110 MB — too large for git)
+PCFRF*.txt
 
 # Ingestion progress tracker
 scripts/.ingest_progress.json
