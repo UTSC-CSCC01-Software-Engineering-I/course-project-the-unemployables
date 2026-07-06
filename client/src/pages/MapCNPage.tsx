@@ -6,15 +6,13 @@ import "./MapCNPage.css";
 
 type BoundaryMode = "provinces" | "ridings";
 
-type SelectedRegion = {
-  name: string;
-  code: string;
-};
+type SelectedRegion = { name: string; code: string };
 
-type ProvinceSummary = {
-  province: string;
+type RegionSummary = {
+  key: string; // province_code or fed_num string
   totalMonetary: number;
   donationCount: number;
+  donorCount: number;
   byParty: { party: string; totalMonetary: number; donationCount: number }[];
 };
 
@@ -29,23 +27,21 @@ const PARTY_COLORS: Record<string, string> = {
   PPC: "#4b306a",
 };
 
-// Green sequential: pale mint → deep forest green
 const CHOROPLETH_STEPS = ["#edf8e9", "#c7e9c0", "#a1d99b", "#74c476", "#41ab5d", "#238b45", "#005a20"];
 
 function amountToColor(amount: number, max: number): string {
   const t = Math.sqrt(amount / max);
   const last = CHOROPLETH_STEPS.length - 1;
-  const idx = Math.min(Math.floor(t * last), last - 1);
-  return CHOROPLETH_STEPS[idx];
+  return CHOROPLETH_STEPS[Math.min(Math.floor(t * last), last - 1)];
 }
 
 function BoundaryLayer({
   mode,
-  provinceData,
+  regionData,
   onSelect,
 }: {
   mode: BoundaryMode;
-  provinceData: ProvinceSummary[];
+  regionData: RegionSummary[];
   onSelect: (region: SelectedRegion | null) => void;
 }) {
   const { map, isLoaded } = useMap();
@@ -66,30 +62,13 @@ function BoundaryLayer({
     let hoveredId: number | string | null = null;
 
     map.addSource(sourceId, { type: "geojson", data: url, generateId: true });
-
-    map.addLayer({
-      id: fillId,
-      type: "fill",
-      source: sourceId,
-      paint: { "fill-color": baseColor, "fill-opacity": 0.15 },
-    });
-
-    map.addLayer({
-      id: hoverFillId,
-      type: "fill",
-      source: sourceId,
-      paint: {
-        "fill-color": baseColor,
-        "fill-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 0.3, 0],
-      },
-    });
-
-    map.addLayer({
-      id: lineId,
-      type: "line",
-      source: sourceId,
-      paint: { "line-color": lineColor, "line-width": lineWidth, "line-opacity": 0.9 },
-    });
+    map.addLayer({ id: fillId, type: "fill", source: sourceId,
+      paint: { "fill-color": baseColor, "fill-opacity": 0.15 } });
+    map.addLayer({ id: hoverFillId, type: "fill", source: sourceId,
+      paint: { "fill-color": baseColor,
+        "fill-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 0.3, 0] } });
+    map.addLayer({ id: lineId, type: "line", source: sourceId,
+      paint: { "line-color": lineColor, "line-width": lineWidth, "line-opacity": 0.9 } });
 
     const onMouseMove = (e: { features?: { id?: number | string }[] }) => {
       if (!e.features?.length) return;
@@ -97,12 +76,10 @@ function BoundaryLayer({
       hoveredId = e.features[0].id ?? null;
       if (hoveredId !== null) map.setFeatureState({ source: sourceId, id: hoveredId }, { hover: true });
     };
-
     const onMouseLeave = () => {
       if (hoveredId !== null) map.setFeatureState({ source: sourceId, id: hoveredId }, { hover: false });
       hoveredId = null;
     };
-
     const onClick = (e: { features?: { properties?: Record<string, unknown> }[] }) => {
       if (!e.features?.length) return;
       const props = e.features[0].properties ?? {};
@@ -130,21 +107,22 @@ function BoundaryLayer({
     };
   }, [map, isLoaded, mode, onSelect]);
 
-  // Apply choropleth colors when province data arrives
+  // Choropleth coloring
   useEffect(() => {
-    if (!map || !isLoaded || mode !== "provinces" || !provinceData.length) return;
+    if (!map || !isLoaded || !regionData.length) return;
     if (!map.getLayer("boundary-fill")) return;
 
-    const max = Math.max(...provinceData.map(p => p.totalMonetary));
-    const matchExpr: unknown[] = ["match", ["get", "province_code"]];
-    for (const p of provinceData) {
-      matchExpr.push(p.province, amountToColor(p.totalMonetary, max));
+    const max = Math.max(...regionData.map(r => r.totalMonetary));
+    const prop = mode === "provinces" ? "province_code" : "FED_NUM";
+    const matchExpr: unknown[] = ["match", ["to-string", ["get", prop]]];
+    for (const r of regionData) {
+      matchExpr.push(r.key, amountToColor(r.totalMonetary, max));
     }
-    matchExpr.push("#edf8e9"); // default (lightest step)
+    matchExpr.push("#edf8e9");
 
     map.setPaintProperty("boundary-fill", "fill-color", matchExpr);
     map.setPaintProperty("boundary-fill", "fill-opacity", 0.75);
-  }, [map, isLoaded, provinceData, mode]);
+  }, [map, isLoaded, regionData, mode]);
 
   return null;
 }
@@ -159,17 +137,32 @@ export function MapCNPage() {
   const [mode, setMode] = useState<BoundaryMode>("provinces");
   const [selected, setSelected] = useState<SelectedRegion | null>(null);
   const [year, setYear] = useState(2022);
-  const [provinceData, setProvinceData] = useState<ProvinceSummary[]>([]);
+  const [regionData, setRegionData] = useState<RegionSummary[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const selectedData = provinceData.find(p => p.province === selected?.code) ?? null;
+  const selectedData = regionData.find(r => r.key === selected?.code) ?? null;
 
   useEffect(() => {
-    if (mode !== "provinces") return;
     setLoading(true);
-    fetch(`${API}/api/provinces/summary?year=${year}`)
+    setRegionData([]);
+    const endpoint = mode === "provinces"
+      ? `/api/provinces/summary?year=${year}`
+      : `/api/ridings/summary?year=${year}`;
+
+    fetch(`${API}${endpoint}`)
       .then(r => r.json())
-      .then(({ data }) => setProvinceData(data ?? []))
+      .then(({ data }) => {
+        const normalized: RegionSummary[] = (data ?? []).map((d: Record<string, unknown>) =>
+          mode === "provinces"
+            ? { key: d["province"] as string, totalMonetary: d["totalMonetary"] as number,
+                donationCount: d["donationCount"] as number, donorCount: d["donorCount"] as number,
+                byParty: d["byParty"] as RegionSummary["byParty"] }
+            : { key: String(d["fedNum"]), totalMonetary: d["totalMonetary"] as number,
+                donationCount: d["donationCount"] as number, donorCount: d["donorCount"] as number,
+                byParty: d["byParty"] as RegionSummary["byParty"] }
+        );
+        setRegionData(normalized);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [year, mode]);
@@ -188,27 +181,18 @@ export function MapCNPage() {
           </button>
         </div>
 
-        {mode === "provinces" && (
-          <select className="map-year-select" value={year} onChange={e => setYear(Number(e.target.value))}>
-            {Array.from({ length: 2024 - 2004 + 1 }, (_, i) => 2004 + i).reverse().map(y => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-        )}
-
+        <select className="map-year-select" value={year} onChange={e => setYear(Number(e.target.value))}>
+          {Array.from({ length: 2024 - 2004 + 1 }, (_, i) => 2004 + i).reverse().map(y => (
+            <option key={y} value={y}>{y}</option>
+          ))}
+        </select>
       </div>
 
       <div className="map-layout">
         <div className={`map-canvas${loading ? " map-canvas--loading" : ""}`}>
-          <Map
-            center={[-96, 62]}
-            zoom={3.2}
-            maxBounds={[[-145, 40], [-45, 86]]}
-            minZoom={2.5}
-            className="h-full w-full"
-          >
+          <Map center={[-96, 62]} zoom={3.2} maxBounds={[[-145, 40], [-45, 86]]} minZoom={2.5} className="h-full w-full">
             <MapControls position="bottom-right" showZoom showCompass />
-            <BoundaryLayer mode={mode} provinceData={provinceData} onSelect={setSelected} />
+            <BoundaryLayer mode={mode} regionData={regionData} onSelect={setSelected} />
           </Map>
           {loading && (
             <div className="map-loading-overlay">
@@ -232,7 +216,7 @@ export function MapCNPage() {
               </div>
 
               <div className="map-info-section">
-                <div className="map-info-section-title">Total Donations {mode === "provinces" ? `(${year})` : ""}</div>
+                <div className="map-info-section-title">Total Donations ({year})</div>
                 {loading ? (
                   <div className="map-skeleton-group">
                     <div className="map-skeleton map-skeleton--lg" />
@@ -241,10 +225,13 @@ export function MapCNPage() {
                 ) : selectedData ? (
                   <>
                     <div className="map-info-total">{formatMoney(selectedData.totalMonetary)}</div>
-                    <div className="map-info-sub">{selectedData.donationCount.toLocaleString()} donations</div>
+                    <div className="map-info-sub">
+                      {(selectedData.donationCount ?? 0).toLocaleString()} donations
+                      {selectedData.donorCount ? ` · ${selectedData.donorCount.toLocaleString()} donors` : ""}
+                    </div>
                   </>
                 ) : (
-                  <div className="map-info-placeholder">{mode === "provinces" ? "No data" : "Data coming soon"}</div>
+                  <div className="map-info-placeholder">No data</div>
                 )}
               </div>
 

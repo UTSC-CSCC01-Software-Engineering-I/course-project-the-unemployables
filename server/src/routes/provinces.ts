@@ -10,7 +10,7 @@ router.get("/summary", async (req: Request, res: Response) => {
 
   const { data, error } = await getSupabase()
     .from("province_party_summary")
-    .select("province, party, total_monetary, donation_count")
+    .select("province, party, total_monetary, donation_count, donor_count")
     .eq("year", year);
 
   if (error) {
@@ -18,11 +18,11 @@ router.get("/summary", async (req: Request, res: Response) => {
     return;
   }
 
-  // Group rows by province, nest party breakdown
   const byProvince: Record<string, {
     province: string;
     totalMonetary: number;
     donationCount: number;
+    donorCount: number;
     byParty: { party: string; totalMonetary: number; donationCount: number }[];
   }> = {};
 
@@ -32,6 +32,7 @@ router.get("/summary", async (req: Request, res: Response) => {
         province: row.province,
         totalMonetary: 0,
         donationCount: 0,
+        donorCount: Number(row.donor_count),
         byParty: [],
       };
     }
