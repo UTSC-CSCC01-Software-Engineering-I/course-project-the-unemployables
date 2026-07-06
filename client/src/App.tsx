@@ -8,14 +8,14 @@ import "./App.css";
 
 function AppLayout() {
   const location = useLocation();
-  const hideSidebarRoutes = ['/login'];
-  const shouldShowBar = !hideSidebarRoutes.includes(location.pathname);
+  const hideSidebarRoutes = ['/login', '/map'];
+  const showSidebar = !hideSidebarRoutes.includes(location.pathname);
 
   return (
       <div className="app">
-        {shouldShowBar && <TopNav />}
+        <TopNav />
         <div className="app-body">
-          {shouldShowBar && <Sidebar />}
+          {showSidebar && <Sidebar />}
           <main className="app-main">
             <Routes>
               <Route path="/" element={<HomePage />} />
