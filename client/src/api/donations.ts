@@ -57,3 +57,4 @@ export async function fetchDonations(
   }
   return res.json() as Promise<PaginatedResponse<Donation>>;
 }
+

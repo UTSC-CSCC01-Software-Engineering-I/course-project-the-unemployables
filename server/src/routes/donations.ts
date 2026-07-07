@@ -1,5 +1,10 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
+import type {
+  DonationFilters,
+  Party,
+  Province,
+} from "../types/index";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabase } from "../lib/supabase";
 

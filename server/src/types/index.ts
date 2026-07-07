@@ -75,3 +75,15 @@ export interface RidingSummary {
   };
   byYear: RidingYearSummary[];
 }
+
+export interface DonationYearPartySum {
+  year: number;
+  party: string;
+  total: number;
+}
+
+export interface DonationMonthPartySum {
+  month: number; // 1–12
+  party: string;
+  total: number;
+}

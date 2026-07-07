@@ -61,6 +61,26 @@ export interface SummaryResponse {
   filters: DonationFilters;
 }
 
+export interface DonationYearPartySum {
+  year: number;
+  party: string;
+  total: number;
+}
+
+export interface YearPartySumResponse {
+  data: DonationYearPartySum[];
+}
+
+export interface DonationMonthPartySum {
+  month: number; // 1–12
+  party: string;
+  total: number;
+}
+
+export interface MonthPartySumResponse {
+  data: DonationMonthPartySum[];
+}
+
 export interface RidingPartyBreakdown {
   party: string;
   totalMonetary: number;
