@@ -30,6 +30,61 @@
   max-width: 1080px;
 }
 
+/* ── Controls (granularity toggle + year select) ── */
+.trends-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.trends-toggle {
+  display: inline-flex;
+  background: #f0f1f4;
+  border: 1px solid #e2e5e9;
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.trends-toggle-btn {
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7480;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.trends-toggle-btn.active {
+  background: #fff;
+  color: #16202b;
+  box-shadow: 0 1px 2px rgba(20, 30, 40, 0.08);
+}
+
+.trends-year-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7480;
+}
+
+.trends-year-select select {
+  font-size: 13px;
+  font-weight: 600;
+  color: #16202b;
+  background: #fff;
+  border: 1px solid #d6dadf;
+  border-radius: 7px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
 /* ── Legend ── */
 .trends-legend {
   display: flex;
