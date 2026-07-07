@@ -4,7 +4,7 @@ An interactive web application for exploring Canadian federal political donation
 
 ![Donation Map](docs/mapScreenshot.png)
 ![Riding Lookup](docs/RidingLookupScreenshot.png)
-
+![Donation Trends](docs/DonationTrendsScreenshot.png)
 ---
 
 ## Local Setup
