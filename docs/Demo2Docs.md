@@ -139,6 +139,18 @@ classDiagram
 - [x] Pre-aggregated donation-per-year and donation-per-year-and-month materialized views (donation_year_party_totals and donation_year_month_party_totals) for fast trend queries
 - [x] Automated tests — server grouping logic, client formatting utilities, Supabase auth flow, riding lookup page, and donation trends page
 
+## Test Screenshots
+
+**Server tests (grouping logic):**
+
+![Server tests passing](Screenshot 2026-07-07 at 1.37.01 PM.png)
+
+**Client tests (map utility functions):**
+
+![Client tests passing](Screenshot 2026-07-07 at 1.37.13 PM.png)
+
+---
+
 ## What Is Outstanding (moves to Demo 3)
 
 - [ ] Year trend chart in riding/province info panel
