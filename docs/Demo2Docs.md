@@ -106,10 +106,10 @@ classDiagram
 - [x] Electoral district choropleth map — donation totals by riding with year selector
 - [x] Province info panel — total donations, donor count, party breakdown
 - [x] Riding lookup page — all-time and per-year donation detail for a single riding
-- [x] Supabase data ingestion — 5.4M donation rows (2004–2024)
+- [x] Supabase data ingestion — 5.4M donation rows (2004–2024), province values normalized across 7,475 rows
 - [x] Postal code → riding lookup table (883K rows via PCFRF)
 - [x] Pre-aggregated riding summary table (riding_party_summary) for fast queries
-- [x] Automated tests — server grouping logic and client formatting utilities
+- [x] Automated tests — server grouping logic, client formatting utilities, Supabase auth flow, riding lookup page, and donation trends page
 
 ## What Is Outstanding (moves to Demo 3)
 
