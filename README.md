@@ -113,3 +113,11 @@ cd client && npm test
 ```
 
 ---
+
+## Software Releases
+
+| Version | Notes |
+|---|---|
+| [v0.2.1](https://github.com/UTSC-CSCC01-Software-Engineering-I/course-project-the-unemployables/releases/tag/v0.2.1) | Demo 2 release — electoral district map, riding lookup, donation trends, automated tests |
+
+---
