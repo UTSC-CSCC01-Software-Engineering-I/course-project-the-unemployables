@@ -1,0 +1,192 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, act } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { DonationTrendsPage } from "../pages/DonationTrendsPage";
+import {
+  fetchDonationSumByYearParty,
+  fetchDonationSumByMonth,
+} from "../api/trends";
+import type {
+  YearPartySumResponse,
+  MonthPartySumResponse,
+} from "../types/index";
+
+// The component imports the trends API functions directly — mocking the module
+// lets each test control exactly what the "backend" returns, with no real
+// network call and no running Express server.
+vi.mock("../api/trends", () => ({
+  fetchDonationSumByYearParty: vi.fn(),
+  fetchDonationSumByMonth: vi.fn(),
+}));
+
+// Recharts relies on real layout measurement (ResponsiveContainer needs a
+// non-zero width/height), which jsdom doesn't provide. Swap the chart
+// primitives for inert stand-ins so the component renders deterministically;
+// the behavior we care about (header, controls, legend, states) lives in our
+// own DOM, not inside the SVG.
+vi.mock("recharts", () => ({
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  LineChart: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="line-chart">{children}</div>
+  ),
+  Line: () => null,
+  XAxis: () => null,
+  YAxis: () => null,
+  CartesianGrid: () => null,
+  Tooltip: () => null,
+}));
+
+const mockedFetchYear = vi.mocked(fetchDonationSumByYearParty);
+const mockedFetchMonth = vi.mocked(fetchDonationSumByMonth);
+
+// ── Fixture data ────────────────────────────────────────────────────────
+
+const YEAR_RESPONSE: YearPartySumResponse = {
+  data: [
+    { year: 2013, party: "LPC", total: 100 },
+    { year: 2013, party: "CPC", total: 200 },
+    { year: 2014, party: "LPC", total: 150 },
+    { year: 2014, party: "CPC", total: 250 },
+    { year: 2015, party: "LPC", total: 300 },
+    { year: 2015, party: "CPC", total: 120 },
+  ],
+};
+
+const MONTH_RESPONSE: MonthPartySumResponse = {
+  data: [
+    { month: 1, party: "LPC", total: 50 },
+    { month: 1, party: "CPC", total: 60 },
+    { month: 2, party: "LPC", total: 70 },
+  ],
+};
+
+beforeEach(() => {
+  mockedFetchYear.mockReset();
+  mockedFetchMonth.mockReset();
+  mockedFetchYear.mockResolvedValue(YEAR_RESPONSE);
+  mockedFetchMonth.mockResolvedValue(MONTH_RESPONSE);
+});
+
+describe("DonationTrendsPage — loading state", () => {
+  it("shows a loading message while the yearly request is pending", async () => {
+    let resolveFn!: (value: YearPartySumResponse) => void;
+    mockedFetchYear.mockReturnValue(
+      new Promise((resolve) => {
+        resolveFn = resolve;
+      })
+    );
+    render(<DonationTrendsPage />);
+
+    expect(screen.getByText("Loading donation trends…")).toBeInTheDocument();
+
+    await act(async () => {
+      resolveFn(YEAR_RESPONSE);
+    });
+    expect(await screen.findByTestId("line-chart")).toBeInTheDocument();
+  });
+});
+
+describe("DonationTrendsPage — yearly view (default)", () => {
+  it("renders the header and a year-range subtitle once data loads", async () => {
+    render(<DonationTrendsPage />);
+    expect(
+      screen.getByRole("heading", { name: "Donation Trends" })
+    ).toBeInTheDocument();
+    // Subtitle uses the first/last available years from the data.
+    expect(
+      await screen.findByText(/Total contributions by party, 2013.2015/)
+    ).toBeInTheDocument();
+  });
+
+  it("fetches yearly totals exactly once and renders the chart", async () => {
+    render(<DonationTrendsPage />);
+    expect(await screen.findByTestId("line-chart")).toBeInTheDocument();
+    expect(mockedFetchYear).toHaveBeenCalledTimes(1);
+    expect(mockedFetchMonth).not.toHaveBeenCalled();
+  });
+
+  it("derives the legend from the data (one entry per party, sorted)", async () => {
+    render(<DonationTrendsPage />);
+    await screen.findByTestId("line-chart");
+    expect(screen.getByRole("button", { name: "CPC" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "LPC" })).toBeInTheDocument();
+  });
+
+  it("toggles a party off in the legend when its entry is clicked", async () => {
+    const user = userEvent.setup();
+    render(<DonationTrendsPage />);
+    await screen.findByTestId("line-chart");
+
+    const cpc = screen.getByRole("button", { name: "CPC" });
+    expect(cpc.className).not.toContain("off");
+    await user.click(cpc);
+    expect(
+      screen.getByRole("button", { name: "CPC" }).className
+    ).toContain("off");
+  });
+});
+
+describe("DonationTrendsPage — error and empty states", () => {
+  it("shows an error message instead of a chart when the fetch rejects", async () => {
+    mockedFetchYear.mockRejectedValue(new Error("Network exploded"));
+    render(<DonationTrendsPage />);
+    expect(await screen.findByText("Network exploded")).toBeInTheDocument();
+    expect(screen.queryByTestId("line-chart")).not.toBeInTheDocument();
+  });
+
+  it("falls back to a generic message when the rejection isn't an Error", async () => {
+    mockedFetchYear.mockRejectedValue("plain string rejection");
+    render(<DonationTrendsPage />);
+    expect(await screen.findByText("Failed to load data")).toBeInTheDocument();
+  });
+
+  it("shows an empty state when there is no donation data", async () => {
+    mockedFetchYear.mockResolvedValue({ data: [] });
+    render(<DonationTrendsPage />);
+    expect(
+      await screen.findByText("No donation data available.")
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("line-chart")).not.toBeInTheDocument();
+  });
+});
+
+describe("DonationTrendsPage — monthly view", () => {
+  it("switches to monthly data for the default (latest) year when 'By Month' is clicked", async () => {
+    const user = userEvent.setup();
+    render(<DonationTrendsPage />);
+    await screen.findByTestId("line-chart");
+
+    await user.click(screen.getByRole("tab", { name: "By Month" }));
+
+    // Latest year in the fixture is 2015 — that's what seeds the month request.
+    expect(mockedFetchMonth).toHaveBeenCalledWith(2015);
+    expect(
+      await screen.findByText(/Monthly contributions by party — 2015/)
+    ).toBeInTheDocument();
+  });
+
+  it("exposes a year selector in month view and refetches when the year changes", async () => {
+    const user = userEvent.setup();
+    render(<DonationTrendsPage />);
+    await screen.findByTestId("line-chart");
+
+    await user.click(screen.getByRole("tab", { name: "By Month" }));
+    const select = await screen.findByRole("combobox");
+    expect(select).toHaveValue("2015");
+
+    await user.selectOptions(select, "2013");
+
+    expect(mockedFetchMonth).toHaveBeenLastCalledWith(2013);
+    expect(
+      await screen.findByText(/Monthly contributions by party — 2013/)
+    ).toBeInTheDocument();
+  });
+
+  it("does not show the year selector in the default yearly view", async () => {
+    render(<DonationTrendsPage />);
+    await screen.findByTestId("line-chart");
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  });
+});
