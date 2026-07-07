@@ -43,3 +43,6 @@ PCFRF*.txt
 
 # Ingestion progress tracker
 scripts/.ingest_progress.json
+
+# Test coverage reports (regenerated on every test run — never commit)
+coverage/
