@@ -21,6 +21,8 @@
   font-weight: 800;
   letter-spacing: 0.5px;
   color: #fff;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 .top-nav-links {
@@ -48,6 +50,18 @@
   border-bottom-color: #2bb3a3;
 }
 
+.top-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.top-nav-user {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
 .top-nav-login {
   background: #16726b;
   color: #fff;
@@ -58,8 +72,19 @@
   padding: 8px 16px;
   cursor: pointer;
   transition: background 0.15s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
 }
 
 .top-nav-login:hover {
   background: #1a8479;
+}
+
+.top-nav-signout {
+  background: #c62828;
+}
+
+.top-nav-signout:hover {
+  background: #b11d1d;
 }

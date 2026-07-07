@@ -1,11 +1,17 @@
+/// <reference types="vitest" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
 export default defineConfig({
   plugins: [react()],
+  envDir: "..", // read .env from repo root instead of client/
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
+  },
+  test: {
+    globals: true,
+    environment: "node",
   },
   server: {
     host: true, // bind 0.0.0.0 so the container port is reachable

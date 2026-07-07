@@ -20,6 +20,8 @@ export interface Donation {
   nonMonetary: number;
   party: Party;
   year: number;
+  contributionAmount?: number;
+  recipientName?: string;
 }
 
 export interface DonationSummary {
@@ -36,6 +38,42 @@ export interface DonationFilters {
   party?: Party;
   province?: Province;
   postalCode?: string;
+  firstName: string;
+  lastName: string;
+  donorName: string;
+  dateFrom: string;
+  dateTo: string;
+  amountMin: number;
+  amountMax: number;
+  politicalParty: string;
+  page: number;
+  limit: number;
+}
+
+export interface RidingPartyBreakdown {
+  party: string;
+  totalMonetary: number;
+  donationCount: number;
+  donorCount: number;
+}
+
+export interface RidingYearSummary {
+  year: number;
+  totalMonetary: number;
+  donationCount: number;
+  donorCount: number;
+  byParty: RidingPartyBreakdown[];
+}
+
+export interface RidingSummary {
+  fedNum: number;
+  allTime: {
+    totalMonetary: number;
+    donationCount: number;
+    donorCount: number;
+    byParty: RidingPartyBreakdown[];
+  };
+  byYear: RidingYearSummary[];
 }
 
 export interface DonationYearPartySum {

@@ -1,41 +1,230 @@
-.ml-body {
+.map-page {
   flex: 1;
   min-height: 0;
   display: flex;
-  gap: 16px;
+  flex-direction: column;
+  position: relative;
   padding: 16px;
+  gap: 12px;
+  background: #f4f5f7;
 }
 
-.map-box {
-  flex: 0 0 65%;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1);
+/* ── Toolbar ─────────────────────────────────────────── */
+
+.map-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.info-panel {
-  flex: 1;
+/* ── Year picker (matches RidingLookupPage) ────────────── */
+
+.map-year-picker {
+  position: relative;
+}
+
+.map-year-picker-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: none;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  font-weight: 500;
+  color: #16202b;
+  cursor: pointer;
+}
+
+.map-year-picker-button:hover {
+  background: #f9f9fa;
+}
+
+.map-year-picker-button svg:last-child {
+  color: #9aa2ad;
+}
+
+.map-year-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 160px;
+  max-height: 260px;
+  overflow-y: auto;
   background: #fff;
   border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+  padding: 6px;
+  z-index: 20;
+}
+
+.map-year-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #16202b;
+  background: transparent;
+  cursor: pointer;
+}
+
+.map-year-option:hover {
+  background: #f4f5f7;
+}
+
+.map-year-option--active {
+  background: #0a2240;
+  color: #fff;
+}
+
+.map-year-option--active:hover {
+  background: #0a2240;
+}
+
+.map-loading {
+  font-size: 12px;
+  color: #888;
+}
+
+/* ── Toggle ─────────────────────────────────────────── */
+
+.map-toggle {
+  display: flex;
+  align-self: flex-start;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.map-toggle button {
+  padding: 7px 18px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.map-toggle button:hover {
+  background: #f5f5f5;
+  color: #333;
+}
+
+.map-toggle button.active {
+  background: #0a2240;
+  color: #fff;
+}
+
+/* ── Layout ─────────────────────────────────────────── */
+
+.map-layout {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 12px;
+}
+
+.map-canvas {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1);
+  transition: opacity 0.2s;
+}
+
+.map-canvas--loading {
+  opacity: 0.6;
+}
+
+/* ── Loading overlay ─────────────────────────────────── */
+
+.map-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(2px);
+  z-index: 10;
+  pointer-events: none;
+  font-size: 13px;
+  color: #555;
+  font-weight: 500;
+}
+
+.map-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #238b45;
+  border-radius: 50%;
+  animation: map-spin 0.7s linear infinite;
+}
+
+@keyframes map-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Skeleton ────────────────────────────────────────── */
+
+@keyframes map-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.map-skeleton {
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #ececec 25%, #f5f5f5 50%, #ececec 75%);
+  background-size: 200% 100%;
+  animation: map-shimmer 1.4s ease infinite;
+}
+
+.map-skeleton--lg  { height: 26px; width: 70%; border-radius: 6px; }
+.map-skeleton--sm  { height: 10px; width: 45%; margin-top: 6px; }
+.map-skeleton--chip { width: 36px; height: 10px; flex-shrink: 0; }
+
+.map-skeleton-group { display: flex; flex-direction: column; gap: 4px; }
+
+.map-skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+/* ── Info Panel ─────────────────────────────────────── */
+
+.map-info-panel {
+  width: 0;
+  overflow: hidden;
+  background: #fff;
+  border-radius: 12px;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  transition: width 0.25s ease;
 }
 
-.info-empty {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px;
-  text-align: center;
-  color: #aaa;
-  font-size: 14px;
-  line-height: 1.6;
+.map-info-panel.open {
+  width: 300px;
+  min-width: 300px;
 }
 
-.info-panel-header {
+.map-info-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -43,14 +232,15 @@
   border-bottom: 1px solid #f0f0f0;
 }
 
-.info-province-name {
-  font-size: 18px;
+.map-info-name {
+  font-size: 17px;
   font-weight: 600;
   color: #1a2e24;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
-.info-province-code {
+.map-info-code {
+  display: inline-block;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1px;
@@ -61,34 +251,107 @@
   border-radius: 3px;
 }
 
-.info-close {
+.map-info-close {
   background: none;
   border: none;
   cursor: pointer;
   color: #bbb;
-  font-size: 16px;
-  padding: 2px 4px;
-  line-height: 1;
+  padding: 2px;
+  display: flex;
   flex-shrink: 0;
 }
 
-.info-close:hover { color: #666; }
+.map-info-close:hover { color: #555; }
 
-.info-section {
+.map-info-section {
   padding: 16px 20px;
   border-bottom: 1px solid #f0f0f0;
 }
 
-.info-section-title {
+.map-info-section-title {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.8px;
   text-transform: uppercase;
   color: #aaa;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
-.info-placeholder {
+.map-info-total {
+  font-size: 26px;
+  font-weight: 700;
+  color: #1a2e24;
+  margin-bottom: 4px;
+}
+
+.map-info-sub {
+  font-size: 12px;
+  color: #888;
+}
+
+.map-info-placeholder {
   font-size: 13px;
   color: #ccc;
+}
+
+/* ── Party breakdown ─────────────────────────────────── */
+
+.map-party-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.map-party-row {
+  display: grid;
+  grid-template-columns: 52px 1fr 56px;
+  align-items: center;
+  gap: 6px;
+}
+
+.map-party-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+}
+
+.map-party-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.map-party-bar-wrap {
+  background: #f0f0f0;
+  border-radius: 3px;
+  height: 6px;
+  overflow: hidden;
+}
+
+.map-party-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.map-party-amount {
+  font-size: 11px;
+  color: #666;
+  text-align: right;
+}
+
+.map-info-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  text-align: center;
+  color: #bbb;
+  font-size: 13px;
+  line-height: 1.6;
 }
