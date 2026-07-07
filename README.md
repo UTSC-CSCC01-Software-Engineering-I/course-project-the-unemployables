@@ -2,6 +2,9 @@
 
 An interactive web application for exploring Canadian federal political donation data from Elections Canada, allowing users to visualize donation patterns geographically by province, filter by party and year, and for authenticated researchers, access individual-level records.
 
+![Donation Map](docs/mapScreenshot.png)
+![Riding Lookup](docs/RidingLookupScreenshot.png)
+
 ---
 
 ## Local Setup

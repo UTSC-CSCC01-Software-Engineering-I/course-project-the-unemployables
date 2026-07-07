@@ -19,6 +19,9 @@ services:
       - "5173:5173"
     depends_on:
       - server
+    env_file:
+      - path: .env
+        required: false
     volumes:
       - ./client/src:/app/src          # hot reload in dev
     environment:
