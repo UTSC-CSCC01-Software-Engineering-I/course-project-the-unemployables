@@ -1,7 +1,4 @@
-import dotenv from "dotenv";
-import path from "path";
-dotenv.config({ path: path.resolve(process.cwd(), "../.env") });
-dotenv.config(); // fallback to local .env if running from server/
+import "./loadEnv";
 import express from "express";
 import cors from "cors";
 import donationsRouter from "./routes/donations";
