@@ -24,11 +24,12 @@ const MOCK_GEOJSON = {
   ],
 };
 
-// Scarborough—Agincourt: has real data across all-time and a 2023 slice.
-// Party totals are deliberately chosen so that the highest-total party (CPC)
-// is NOT the highest-average party (GPC) — this is what proves the
-// "Top Party" re-ranking logic actually switches basis with the metric
-// toggle, rather than coincidentally looking right.
+// Scarborough—Agincourt: has real data across all-time and two year slices
+// (2022 and 2023), so tests can exercise both single-year selection and
+// multi-year combination. Party totals are deliberately chosen so that the
+// highest-total party (CPC) is NOT the highest-average party (GPC) — this is
+// what proves the "Top Party" re-ranking logic actually switches basis with
+// the metric toggle, rather than coincidentally looking right.
 const AGINCOURT_SUMMARY: RidingSummary = {
   fedNum: 35092,
   allTime: {
@@ -59,8 +60,24 @@ const AGINCOURT_SUMMARY: RidingSummary = {
         { party: "GPC", totalMonetary: 400, donationCount: 1, donorCount: 1 },
       ],
     },
+    {
+      year: 2022,
+      totalMonetary: 20_000,
+      donationCount: 100,
+      donorCount: 50,
+      byParty: [
+        { party: "CPC", totalMonetary: 10_000, donationCount: 40, donorCount: 20 },
+        { party: "NDP", totalMonetary: 5_000, donationCount: 30, donorCount: 15 },
+        { party: "LPC", totalMonetary: 5_000, donationCount: 30, donorCount: 15 },
+      ],
+    },
   ],
 };
+
+// A second riding sharing Agincourt's numbers, used only to prove that
+// per-riding UI state (party filters, year selection) resets when the user
+// switches to a different riding.
+const LAURIER_SUMMARY: RidingSummary = { ...AGINCOURT_SUMMARY, fedNum: 24037 };
 
 // Avalon: a riding that genuinely has zero recorded donations, to exercise
 // the "no donations recorded" paths (not an error — a legitimate empty result).
@@ -84,6 +101,11 @@ async function selectRiding(user: ReturnType<typeof userEvent.setup>, query: str
   await user.type(input, query);
   const option = await screen.findByText(optionText);
   await user.click(option);
+}
+
+// Opens the year dropdown from its closed, All-Time state.
+async function openYearDropdown(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: /all-time/i }));
 }
 
 beforeEach(() => {
@@ -270,8 +292,8 @@ describe("RidingLookupPage — year selection", () => {
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
-    await user.click(screen.getByRole("button", { name: /all-time/i }));
-    await user.click(screen.getByRole("button", { name: "2023" }));
+    await openYearDropdown(user);
+    await user.click(screen.getByRole("checkbox", { name: "2023" }));
 
     // Stat cards now reflect the 2023 slice, not all-time.
     expect(await screen.findByText("$54K")).toBeInTheDocument();
@@ -290,8 +312,8 @@ describe("RidingLookupPage — year selection", () => {
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
-    await user.click(screen.getByRole("button", { name: /all-time/i }));
-    await user.click(screen.getByRole("button", { name: "2023" }));
+    await openYearDropdown(user);
+    await user.click(screen.getByRole("checkbox", { name: "2023" }));
 
     expect(await screen.findByRole("button", { name: "2023" })).toBeInTheDocument();
   });
@@ -302,12 +324,84 @@ describe("RidingLookupPage — year selection", () => {
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
-    await user.click(screen.getByRole("button", { name: /all-time/i }));
+    await openYearDropdown(user);
     // 2020 isn't in AGINCOURT_SUMMARY.byYear at all.
-    await user.click(screen.getByRole("button", { name: "2020" }));
+    await user.click(screen.getByRole("checkbox", { name: "2020" }));
 
     expect((await screen.findAllByText("No donations recorded for 2020")).length).toBe(2);
     expect(screen.getByText("$0")).toBeInTheDocument();
+  });
+
+  it("keeps the dropdown open after checking a year, so more years can be added", async () => {
+    const user = userEvent.setup();
+    render(<RidingLookupPage />);
+    await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
+    await screen.findByText("$1.4M");
+
+    await openYearDropdown(user);
+    await user.click(screen.getByRole("checkbox", { name: "2023" }));
+
+    // The checkbox for 2022 should still be reachable without reopening.
+    expect(screen.getByRole("checkbox", { name: "2022" })).toBeInTheDocument();
+  });
+
+  it("combines totals across multiple selected years", async () => {
+    const user = userEvent.setup();
+    render(<RidingLookupPage />);
+    await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
+    await screen.findByText("$1.4M");
+
+    await openYearDropdown(user);
+    await user.click(screen.getByRole("checkbox", { name: "2023" }));
+    await user.click(screen.getByRole("checkbox", { name: "2022" }));
+
+    // 54,400 + 20,000 = 74,400 → "$74K"; 253 + 100 = 353 donations.
+    expect(await screen.findByText("$74K")).toBeInTheDocument();
+    expect(screen.getByText("353")).toBeInTheDocument();
+
+    // Button label and chart title show both years, ascending.
+    expect(screen.getByRole("button", { name: "2022, 2023" })).toBeInTheDocument();
+    expect(screen.getByText("Total Amount by Party — 2022, 2023")).toBeInTheDocument();
+
+    // Per-party totals summed across both years: CPC 29,000 + 10,000 = 39,000.
+    const rows = document.querySelectorAll(".riding-party-row");
+    expect(rows.length).toBe(5);
+    expect(within(rows[0] as HTMLElement).getByText("CPC")).toBeInTheDocument();
+    expect(within(rows[0] as HTMLElement).getByText("$39K")).toBeInTheDocument();
+  });
+
+  it("shows a note that totals are combined when more than one year is selected", async () => {
+    const user = userEvent.setup();
+    render(<RidingLookupPage />);
+    await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
+    await screen.findByText("$1.4M");
+
+    await openYearDropdown(user);
+    await user.click(screen.getByRole("checkbox", { name: "2023" }));
+    expect(screen.queryByText(/showing combined totals/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("checkbox", { name: "2022" }));
+    expect(screen.getByText("Showing combined totals for 2022, 2023.")).toBeInTheDocument();
+  });
+
+  it("falls back to All-Time automatically when every selected year is unchecked", async () => {
+    const user = userEvent.setup();
+    render(<RidingLookupPage />);
+    await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
+    await screen.findByText("$1.4M");
+
+    await openYearDropdown(user);
+    const checkbox = screen.getByRole("checkbox", { name: "2023" });
+    await user.click(checkbox);
+    expect(await screen.findByText("$54K")).toBeInTheDocument();
+
+    await user.click(checkbox); // uncheck the only selected year
+    expect(await screen.findByText("$1.4M")).toBeInTheDocument();
+
+    // Close the dropdown before asserting on the picker button label, since
+    // the dropdown's own "All-Time" option would otherwise also match.
+    await user.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.getByRole("button", { name: /all-time/i })).toBeInTheDocument();
   });
 });
 
@@ -323,8 +417,8 @@ describe("RidingLookupPage — metric toggle (Total vs Average)", () => {
     await screen.findByText("$1.4M");
 
     // Move to the 2023 slice first for a clean, hand-verifiable average.
-    await user.click(screen.getByRole("button", { name: /all-time/i }));
-    await user.click(screen.getByRole("button", { name: "2023" }));
+    await openYearDropdown(user);
+    await user.click(screen.getByRole("checkbox", { name: "2023" }));
     await screen.findByText("$54K");
 
     expect(screen.getByText("Total Donations")).toBeInTheDocument();
@@ -342,8 +436,8 @@ describe("RidingLookupPage — metric toggle (Total vs Average)", () => {
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
-    await user.click(screen.getByRole("button", { name: /all-time/i }));
-    await user.click(screen.getByRole("button", { name: "2023" }));
+    await openYearDropdown(user);
+    await user.click(screen.getByRole("checkbox", { name: "2023" }));
     await screen.findByText("$54K");
 
     // By total, CPC leads (2023 fixture). Confirm that first.
@@ -426,6 +520,112 @@ describe("RidingLookupPage — view toggle (Bar vs Pie)", () => {
   });
 });
 
+describe("RidingLookupPage — party filter toggles", () => {
+  beforeEach(() => {
+    mockedFetchRidingSummary.mockResolvedValue(AGINCOURT_SUMMARY);
+  });
+
+  it("shows a clickable chip for every party present in the current view", async () => {
+    const user = userEvent.setup();
+    render(<RidingLookupPage />);
+    await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
+    await screen.findByText("$1.4M");
+
+    for (const party of ["CPC", "NDP", "LPC", "GPC", "PPC"]) {
+      expect(screen.getByRole("button", { name: party })).toBeInTheDocument();
+    }
+  });
+
+  it("removes a party from the bar chart when its chip is clicked, without touching the stat cards", async () => {
+    const user = userEvent.setup();
+    render(<RidingLookupPage />);
+    await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
+    await screen.findByText("$1.4M");
+
+    expect(document.querySelectorAll(".riding-party-row").length).toBe(5);
+
+    await user.click(screen.getByRole("button", { name: "CPC" }));
+
+    const rows = document.querySelectorAll(".riding-party-row");
+    expect(rows.length).toBe(4);
+    for (const row of Array.from(rows)) {
+      expect(within(row as HTMLElement).queryByText("CPC")).not.toBeInTheDocument();
+    }
+
+    // Stat cards describe the whole riding and shouldn't change because of a chart filter.
+    expect(screen.getByText("$1.4M")).toBeInTheDocument();
+    const topPartyCard = screen.getByText("Top Party").closest(".riding-stat-card")!;
+    expect(within(topPartyCard).getByText("CPC")).toBeInTheDocument();
+  });
+
+  it("re-adds the party when its chip is clicked again", async () => {
+    const user = userEvent.setup();
+    render(<RidingLookupPage />);
+    await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
+    await screen.findByText("$1.4M");
+
+    const chip = screen.getByRole("button", { name: "CPC" });
+    await user.click(chip);
+    expect(document.querySelectorAll(".riding-party-row").length).toBe(4);
+
+    await user.click(chip);
+    expect(document.querySelectorAll(".riding-party-row").length).toBe(5);
+  });
+
+  it("also filters the pie chart legend", async () => {
+    const user = userEvent.setup();
+    render(<RidingLookupPage />);
+    await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
+    await screen.findByText("$1.4M");
+
+    await user.click(screen.getByRole("button", { name: "CPC" }));
+    await user.click(screen.getByTitle("Pie chart"));
+
+    const legend = document.querySelector(".riding-pie-legend")!;
+    expect(within(legend as HTMLElement).queryByText("CPC")).not.toBeInTheDocument();
+    expect(within(legend as HTMLElement).getByText("NDP")).toBeInTheDocument();
+  });
+
+  it("shows a message when every party has been toggled off, but keeps the chips visible", async () => {
+    const user = userEvent.setup();
+    render(<RidingLookupPage />);
+    await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
+    await screen.findByText("$1.4M");
+
+    for (const party of ["CPC", "NDP", "LPC", "GPC", "PPC"]) {
+      await user.click(screen.getByRole("button", { name: party }));
+    }
+
+    expect(
+      screen.getByText("All parties are hidden — click a party above to show it.")
+    ).toBeInTheDocument();
+    expect(document.querySelectorAll(".riding-party-row").length).toBe(0);
+    // The chips themselves (and the metric/view controls) should remain so the user can undo this.
+    expect(screen.getByRole("button", { name: "CPC" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Total Amount" })).toBeInTheDocument();
+  });
+
+  it("resets the party filter when a different riding is selected", async () => {
+    mockedFetchRidingSummary.mockImplementation(fedNum =>
+      Promise.resolve(fedNum === 35092 ? AGINCOURT_SUMMARY : LAURIER_SUMMARY)
+    );
+    const user = userEvent.setup();
+    render(<RidingLookupPage />);
+
+    await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
+    await screen.findByText("$1.4M");
+    await user.click(screen.getByRole("button", { name: "CPC" }));
+    expect(document.querySelectorAll(".riding-party-row").length).toBe(4);
+
+    await selectRiding(user, "Laurier", "Laurier—Sainte-Marie");
+    await screen.findByText("District 24037");
+    await screen.findByText("$1.4M");
+
+    // CPC should be visible again for the newly selected riding.
+    expect(document.querySelectorAll(".riding-party-row").length).toBe(5);
+  });
+});
+
 describe("RidingLookupPage — dropdown dismissal", () => {
   it("closes the year dropdown when clicking outside of it", async () => {
     mockedFetchRidingSummary.mockResolvedValue(AGINCOURT_SUMMARY);
@@ -434,13 +634,29 @@ describe("RidingLookupPage — dropdown dismissal", () => {
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
-    await user.click(screen.getByRole("button", { name: /all-time/i }));
-    expect(screen.getByRole("button", { name: "2023" })).toBeInTheDocument();
+    await openYearDropdown(user);
+    expect(screen.getByRole("checkbox", { name: "2023" })).toBeInTheDocument();
 
     // Click somewhere clearly outside the dropdown (the page title).
     await user.click(screen.getByRole("heading", { name: "Riding Lookup" }));
 
-    expect(screen.queryByRole("button", { name: "2023" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "2023" })).not.toBeInTheDocument();
+  });
+
+  it("closes the year dropdown via its own Done button", async () => {
+    mockedFetchRidingSummary.mockResolvedValue(AGINCOURT_SUMMARY);
+    const user = userEvent.setup();
+    render(<RidingLookupPage />);
+    await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
+    await screen.findByText("$1.4M");
+
+    await openYearDropdown(user);
+    await user.click(screen.getByRole("checkbox", { name: "2023" }));
+    await user.click(screen.getByRole("button", { name: "Done" }));
+
+    expect(screen.queryByRole("checkbox", { name: "2023" })).not.toBeInTheDocument();
+    // The selection itself should stick even though the dropdown closed.
+    expect(screen.getByRole("button", { name: "2023" })).toBeInTheDocument();
   });
 
   it("closes the search suggestions when clicking outside of the search box", async () => {
@@ -558,12 +774,13 @@ describe("RidingLookupPage — a riding with genuinely zero donations", () => {
     expect(screen.getAllByText("No donations recorded").length).toBeGreaterThanOrEqual(2);
   });
 
-  it("does not show the metric/view toggle controls when there is no chartable data", async () => {
+  it("does not show the metric/view toggle controls or party chips when there is no chartable data", async () => {
     const user = userEvent.setup();
     render(<RidingLookupPage />);
     await selectRiding(user, "Avalon", "Avalon");
     await screen.findByText("$0");
     expect(screen.queryByRole("button", { name: "Total Amount" })).not.toBeInTheDocument();
+    expect(document.querySelector(".riding-party-filter-row")).not.toBeInTheDocument();
   });
 });
 
@@ -595,8 +812,8 @@ describe("RidingLookupPage — clearing and switching ridings", () => {
     await screen.findByText("$1.4M");
 
     // Change every preference away from its default.
-    await user.click(screen.getByRole("button", { name: /all-time/i }));
-    await user.click(screen.getByRole("button", { name: "2023" }));
+    await openYearDropdown(user);
+    await user.click(screen.getByRole("checkbox", { name: "2023" }));
     await user.click(screen.getByRole("button", { name: "Avg. Donation Size" }));
     await screen.findByText("Average Donation Size");
 
@@ -617,8 +834,8 @@ describe("RidingLookupPage — clearing and switching ridings", () => {
     await screen.findByText("$1.4M");
 
     // Move away from every default first.
-    await user.click(screen.getByRole("button", { name: /all-time/i }));
-    await user.click(screen.getByRole("button", { name: "2023" }));
+    await openYearDropdown(user);
+    await user.click(screen.getByRole("checkbox", { name: "2023" }));
     await user.click(screen.getByRole("button", { name: "Avg. Donation Size" }));
     await screen.findByText("Average Donation Size");
 

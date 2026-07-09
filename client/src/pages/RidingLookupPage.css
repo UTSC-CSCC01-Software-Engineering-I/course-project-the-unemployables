@@ -324,6 +324,62 @@
   margin: 6px 4px;
 }
 
+.riding-year-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.riding-year-checkbox-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #16202b;
+  cursor: pointer;
+}
+
+.riding-year-checkbox-option:hover {
+  background: #f4f5f7;
+}
+
+.riding-year-checkbox-option input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: #0a2240;
+  cursor: pointer;
+}
+
+.riding-year-checkbox-option--active {
+  font-weight: 600;
+}
+
+.riding-year-dropdown-done {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: #0a2240;
+  cursor: pointer;
+}
+
+.riding-year-dropdown-done:hover {
+  background: #0d2c52;
+}
+
+.riding-year-note {
+  font-size: 12px;
+  color: #6b7480;
+}
+
 /* ── Charts ─────────────────────────────────────────── */
 
 .riding-charts-row {
@@ -355,7 +411,43 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 10px;
+  margin-bottom: 14px;
+}
+
+.riding-party-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 20px;
+}
+
+.riding-party-filter-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid #e0e2e6;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  color: #16202b;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.riding-party-filter-chip:hover {
+  background: #f4f5f7;
+}
+
+.riding-party-filter-chip--off {
+  opacity: 0.45;
+  background: #f4f5f7;
+  color: #9aa2ad;
+}
+
+.riding-party-filter-chip--off .riding-party-dot {
+  filter: grayscale(1);
 }
 
 .riding-metric-toggle {

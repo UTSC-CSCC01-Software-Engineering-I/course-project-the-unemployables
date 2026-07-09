@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, MapPin, X, BarChart3, PieChart, CalendarRange, ChevronDown } from "lucide-react";
 import { fetchRidingSummary } from "../api/ridings";
-import type { RidingSummary } from "../types/index";
+import type { RidingSummary, RidingPartyBreakdown } from "../types/index";
 import "./RidingLookupPage.css";
 
 // ── Types ───────────────────────────────────────────────────────────────
@@ -26,9 +26,9 @@ interface RidingGeoJson {
   features: RidingFeature[];
 }
 
-// "all" = all-time (default). A specific year narrows both the stat cards
-// and the chart down to that year's riding_party_summary rows.
-type YearSelection = "all" | number;
+// "all" = all-time (default, summary.allTime). "custom" = one or more
+// specific years chosen from the dropdown, combined together.
+type YearMode = "all" | "custom";
 
 // "total" = total $ donated per party (a share of the riding's whole).
 // "average" = average donation size per party (total ÷ count) — not a share
@@ -59,15 +59,55 @@ function formatMoney(amount: number): string {
   return `$${amount.toFixed(0)}`;
 }
 
+// Human-readable label for the year picker button / chart title: "All-Time",
+// a single year, a short comma-joined list, or a count once it gets long.
+function formatYearSelection(mode: YearMode, years: Set<number>): string {
+  if (mode === "all" || years.size === 0) return "All-Time";
+  const sorted = Array.from(years).sort((a, b) => a - b);
+  if (sorted.length <= 3) return sorted.join(", ");
+  return `${sorted.length} years selected`;
+}
+
+// Sums a riding's year-by-year rows across the given set of years into one
+// combined total + per-party breakdown, so multi-year selection reads from
+// the exact same shape as a single year or all-time.
+function combineYearStats(summary: RidingSummary, years: Set<number>) {
+  const relevant = summary.byYear.filter(y => years.has(y.year));
+  let totalMonetary = 0;
+  let donationCount = 0;
+  const partyTotals = new Map<string, { totalMonetary: number; donationCount: number; donorCount: number }>();
+
+  for (const yearRow of relevant) {
+    totalMonetary += yearRow.totalMonetary;
+    donationCount += yearRow.donationCount;
+    for (const p of yearRow.byParty) {
+      const existing = partyTotals.get(p.party) ?? { totalMonetary: 0, donationCount: 0, donorCount: 0 };
+      existing.totalMonetary += p.totalMonetary;
+      existing.donationCount += p.donationCount;
+      existing.donorCount += p.donorCount;
+      partyTotals.set(p.party, existing);
+    }
+  }
+
+  const byParty: RidingPartyBreakdown[] = Array.from(partyTotals.entries()).map(([party, totals]) => ({
+    party,
+    ...totals,
+  }));
+
+  return { totalMonetary, donationCount, byParty };
+}
+
 export function RidingLookupPage() {
   const [ridings, setRidings] = useState<RidingOption[]>([]);
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [selected, setSelected] = useState<RidingOption | null>(null);
-  const [yearSelection, setYearSelection] = useState<YearSelection>("all");
+  const [yearMode, setYearMode] = useState<YearMode>("all");
+  const [selectedYears, setSelectedYears] = useState<Set<number>>(new Set());
   const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
   const [metric, setMetric] = useState<Metric>("total");
   const [viewType, setViewType] = useState<ViewType>("bar");
+  const [excludedParties, setExcludedParties] = useState<Set<string>>(new Set());
   const [summary, setSummary] = useState<RidingSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -105,16 +145,18 @@ export function RidingLookupPage() {
 
   // Fetch real donation stats whenever a riding is selected. Reset display
   // preferences back to defaults so switching ridings doesn't carry over a
-  // year/metric/view choice that may not make sense for the new riding.
+  // year/metric/view/party-filter choice that may not make sense for the new riding.
   useEffect(() => {
     if (!selected) {
       setSummary(null);
       setSummaryError(null);
       return;
     }
-    setYearSelection("all");
+    setYearMode("all");
+    setSelectedYears(new Set());
     setMetric("total");
     setViewType("bar");
+    setExcludedParties(new Set());
     setSummaryLoading(true);
     setSummaryError(null);
     fetchRidingSummary(selected.fedNum)
@@ -132,24 +174,22 @@ export function RidingLookupPage() {
   }, [metric, viewType]);
 
   // The single source of truth for both the stat cards and the chart —
-  // whichever is selected (all-time or a specific year), everything below
-  // reads from this instead of branching on yearSelection repeatedly.
+  // whichever is selected (all-time or one/many specific years), everything
+  // below reads from this instead of branching on the year state repeatedly.
   const activeStats = useMemo(() => {
     if (!summary) return null;
-    if (yearSelection === "all") {
+    if (yearMode === "all") {
       return {
         totalMonetary: summary.allTime.totalMonetary,
         donationCount: summary.allTime.donationCount,
         byParty: summary.allTime.byParty,
       };
     }
-    const yearData = summary.byYear.find(y => y.year === yearSelection);
-    return {
-      totalMonetary: yearData?.totalMonetary ?? 0,
-      donationCount: yearData?.donationCount ?? 0,
-      byParty: yearData?.byParty ?? [],
-    };
-  }, [summary, yearSelection]);
+    if (selectedYears.size === 0) {
+      return { totalMonetary: 0, donationCount: 0, byParty: [] };
+    }
+    return combineYearStats(summary, selectedYears);
+  }, [summary, yearMode, selectedYears]);
 
   const topParty = useMemo(() => {
     if (!activeStats || activeStats.byParty.length === 0) return null;
@@ -170,22 +210,28 @@ export function RidingLookupPage() {
     return activeStats.totalMonetary / activeStats.donationCount;
   }, [activeStats]);
 
-  // Chart rows derived from the selected metric. "total" = raw $ per party
-  // (shown as a share of the riding's whole). "average" = $ per donation per
-  // party (no shared whole, so pct below is scaled against the max row).
+  // Chart rows derived from the selected metric, with any parties the user
+  // has toggled off filtered out. "total" = raw $ per party (shown as a share
+  // of the riding's whole). "average" = $ per donation per party (no shared
+  // whole, so pct below is scaled against the max row).
   const chartRows = useMemo(() => {
     if (!activeStats) return [];
     return activeStats.byParty
+      .filter(p => !excludedParties.has(p.party))
       .map(p => ({
         party: p.party,
         donationCount: p.donationCount,
         value: metric === "total" ? p.totalMonetary : p.donationCount > 0 ? p.totalMonetary / p.donationCount : 0,
       }))
       .sort((a, b) => b.value - a.value);
-  }, [activeStats, metric]);
+  }, [activeStats, metric, excludedParties]);
 
   const chartTotal = useMemo(() => chartRows.reduce((sum, r) => sum + r.value, 0), [chartRows]);
   const chartMax = useMemo(() => Math.max(0, ...chartRows.map(r => r.value)), [chartRows]);
+
+  // True when the riding does have chartable data, but the user has toggled
+  // every party off — distinct from there being genuinely no data at all.
+  const allPartiesHidden = (activeStats?.byParty.length ?? 0) > 0 && chartRows.length === 0;
 
   // Pie slices as conic-gradient stops, built from each row's share of chartTotal.
   const pieGradient = useMemo(() => {
@@ -217,21 +263,47 @@ export function RidingLookupPage() {
   function handleClear() {
     setSelected(null);
     setQuery("");
-    setYearSelection("all");
+    setYearMode("all");
+    setSelectedYears(new Set());
+    setExcludedParties(new Set());
   }
 
-  function selectYearOption(option: YearSelection) {
-    setYearSelection(option);
+  function selectAllTime() {
+    setYearMode("all");
+    setSelectedYears(new Set());
     setIsYearDropdownOpen(false);
   }
 
+  // Toggles a single year in/out of the combined selection. Doesn't close the
+  // dropdown, since picking multiple years means the user needs it to stay
+  // open across several clicks. If this unchecks the last remaining year,
+  // fall back to All-Time rather than leaving the view stuck on empty data.
+  function toggleYear(year: number) {
+    setSelectedYears(prev => {
+      const next = new Set(prev);
+      if (next.has(year)) next.delete(year);
+      else next.add(year);
+      setYearMode(next.size === 0 ? "all" : "custom");
+      return next;
+    });
+  }
+
+  // Toggles whether a party is shown in the bar/pie graphs. Doesn't touch the
+  // stat cards (Total Donations, Top Party, etc.) — those describe the whole
+  // riding, not just the parties currently visible in the chart.
+  function toggleParty(party: string) {
+    setExcludedParties(prev => {
+      const next = new Set(prev);
+      if (next.has(party)) next.delete(party);
+      else next.add(party);
+      return next;
+    });
+  }
+
   const metricLabel = metric === "total" ? "Total Amount" : "Avg. Donation Size";
-  const chartTitle =
-    yearSelection === "all"
-      ? `${metricLabel} by Party — All-Time`
-      : `${metricLabel} by Party — ${yearSelection}`;
-  const noDataLabel =
-    yearSelection === "all" ? "No donations recorded" : `No donations recorded for ${yearSelection}`;
+  const yearLabel = formatYearSelection(yearMode, selectedYears);
+  const chartTitle = `${metricLabel} by Party — ${yearLabel}`;
+  const noDataLabel = yearMode === "all" ? "No donations recorded" : `No donations recorded for ${yearLabel}`;
 
   return (
     <div className="riding-page">
@@ -305,7 +377,7 @@ export function RidingLookupPage() {
                 onClick={() => setIsYearDropdownOpen(o => !o)}
               >
                 <CalendarRange size={15} />
-                <span>{yearSelection === "all" ? "All-Time" : yearSelection}</span>
+                <span>{yearLabel}</span>
                 <ChevronDown size={14} />
               </button>
 
@@ -313,29 +385,44 @@ export function RidingLookupPage() {
                 <div className="riding-year-dropdown">
                   <button
                     type="button"
-                    className={
-                      "riding-year-option" + (yearSelection === "all" ? " riding-year-option--active" : "")
-                    }
-                    onClick={() => selectYearOption("all")}
+                    className={"riding-year-option" + (yearMode === "all" ? " riding-year-option--active" : "")}
+                    onClick={selectAllTime}
                   >
                     All-Time
                   </button>
                   <div className="riding-year-dropdown-divider" />
-                  {YEARS.map(year => (
-                    <button
-                      key={year}
-                      type="button"
-                      className={
-                        "riding-year-option" + (yearSelection === year ? " riding-year-option--active" : "")
-                      }
-                      onClick={() => selectYearOption(year)}
-                    >
-                      {year}
-                    </button>
-                  ))}
+                  <div className="riding-year-checkbox-list">
+                    {YEARS.map(year => (
+                      <label
+                        key={year}
+                        className={
+                          "riding-year-checkbox-option" +
+                          (selectedYears.has(year) ? " riding-year-checkbox-option--active" : "")
+                        }
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedYears.has(year)}
+                          onChange={() => toggleYear(year)}
+                        />
+                        <span>{year}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <div className="riding-year-dropdown-divider" />
+                  <button
+                    type="button"
+                    className="riding-year-dropdown-done"
+                    onClick={() => setIsYearDropdownOpen(false)}
+                  >
+                    Done
+                  </button>
                 </div>
               )}
             </div>
+            {yearMode === "custom" && selectedYears.size > 1 && (
+              <div className="riding-year-note">Showing combined totals for {yearLabel}.</div>
+            )}
           </div>
 
           <div className="riding-stats-row">
@@ -355,9 +442,7 @@ export function RidingLookupPage() {
                   <div className="riding-stat-value">
                     {formatMoney(metric === "total" ? activeStats?.totalMonetary ?? 0 : overallAverageDonation)}
                   </div>
-                  <div className="riding-stat-note">
-                    {yearSelection === "all" ? "All years combined" : yearSelection}
-                  </div>
+                  <div className="riding-stat-note">{yearMode === "all" ? "All years combined" : yearLabel}</div>
                 </>
               )}
             </div>
@@ -375,9 +460,7 @@ export function RidingLookupPage() {
                   <div className="riding-stat-value">
                     {(activeStats?.donationCount ?? 0).toLocaleString()}
                   </div>
-                  <div className="riding-stat-note">
-                    {yearSelection === "all" ? "All years combined" : yearSelection}
-                  </div>
+                  <div className="riding-stat-note">{yearMode === "all" ? "All years combined" : yearLabel}</div>
                 </>
               )}
             </div>
@@ -419,7 +502,7 @@ export function RidingLookupPage() {
                 <span>{chartTitle}</span>
               </div>
 
-              {!summaryLoading && !summaryError && chartRows.length > 0 && (
+              {!summaryLoading && !summaryError && (activeStats?.byParty.length ?? 0) > 0 && (
                 <div className="riding-chart-controls">
                   <div className="riding-metric-toggle">
                     <button
@@ -460,12 +543,38 @@ export function RidingLookupPage() {
                 </div>
               )}
 
+              {!summaryLoading && !summaryError && (activeStats?.byParty.length ?? 0) > 0 && (
+                <div className="riding-party-filter-row">
+                  {activeStats!.byParty.map(p => {
+                    const isOff = excludedParties.has(p.party);
+                    return (
+                      <button
+                        key={p.party}
+                        type="button"
+                        className={"riding-party-filter-chip" + (isOff ? " riding-party-filter-chip--off" : "")}
+                        onClick={() => toggleParty(p.party)}
+                        aria-pressed={!isOff}
+                        title={isOff ? `Show ${p.party} in the chart` : `Hide ${p.party} from the chart`}
+                      >
+                        <span
+                          className="riding-party-dot"
+                          style={{ background: PARTY_COLORS[p.party] ?? "#999" }}
+                        />
+                        {p.party}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
               {summaryLoading ? (
                 <div className="riding-chart-placeholder">Loading…</div>
               ) : summaryError ? (
                 <div className="riding-chart-placeholder">{summaryError}</div>
               ) : chartRows.length === 0 ? (
-                <div className="riding-chart-placeholder">{noDataLabel}</div>
+                <div className="riding-chart-placeholder">
+                  {allPartiesHidden ? "All parties are hidden — click a party above to show it." : noDataLabel}
+                </div>
               ) : viewType === "pie" ? (
                 <div className="riding-pie-view">
                   <div className="riding-pie" style={{ background: pieGradient }} />
