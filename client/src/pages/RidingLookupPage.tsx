@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Search, MapPin, X, BarChart3, PieChart, CalendarRange, ChevronDown } from "lucide-react";
 import { fetchRidingSummary } from "../api/ridings";
 import type { RidingSummary, RidingPartyBreakdown } from "../types/index";
@@ -98,6 +99,7 @@ function combineYearStats(summary: RidingSummary, years: Set<number>) {
 }
 
 export function RidingLookupPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [ridings, setRidings] = useState<RidingOption[]>([]);
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -127,6 +129,26 @@ export function RidingLookupPage() {
       })
       .catch(console.error);
   }, []);
+
+  // Deep-link support: the map page links here as
+  // "/riding-lookup?fedNum=<FED_NUM>" so a district clicked on the map opens
+  // straight to its summary. Runs once the riding list has loaded (so the
+  // fedNum can actually be resolved to a name), then clears the param so it
+  // doesn't fight with the user's own search/clear actions afterward.
+  useEffect(() => {
+    const fedNumParam = searchParams.get("fedNum");
+    if (!fedNumParam || ridings.length === 0) return;
+    const fedNum = Number(fedNumParam);
+    const match = ridings.find(r => r.fedNum === fedNum);
+    if (match) {
+      setSelected(match);
+    }
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.delete("fedNum");
+      return next;
+    }, { replace: true });
+  }, [ridings, searchParams, setSearchParams]);
 
   // Close either dropdown on outside click.
   useEffect(() => {

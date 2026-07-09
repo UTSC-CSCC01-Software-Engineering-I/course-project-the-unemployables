@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Map, MapControls, useMap } from "@/components/ui/map";
 import { InvalidFilterPopUp } from "@/components/ui/invalidFilterPopUp";
-import { X, CalendarRange, ChevronDown } from "lucide-react";
+import { X, CalendarRange, ChevronDown, ArrowRight } from "lucide-react";
 import "./MapCNPage.css";
 
 type BoundaryMode = "provinces" | "ridings";
@@ -126,6 +127,7 @@ function BoundaryLayer({
 
 
 export function MapCNPage() {
+  const navigate = useNavigate();
   const [mode, setMode] = useState<BoundaryMode>("provinces");
   const [selected, setSelected] = useState<SelectedRegion | null>(null);
   const [year, setYear] = useState(2022);
@@ -307,6 +309,19 @@ export function MapCNPage() {
                 <div className="map-info-section-title">Year Trend</div>
                 <div className="map-info-placeholder">Coming soon</div>
               </div>
+
+              {mode === "ridings" && (
+                <div className="map-info-footer">
+                  <button
+                    type="button"
+                    className="map-info-link-btn"
+                    onClick={() => navigate(`/riding-lookup?fedNum=${selected.code}`)}
+                  >
+                    View advanced donation data
+                    <ArrowRight size={14} />
+                  </button>
+                </div>
+              )}
             </>
           ) : (
             <div className="map-info-empty">

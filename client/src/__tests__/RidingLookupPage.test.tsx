@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, within, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { RidingLookupPage } from "../pages/RidingLookupPage";
 import { fetchRidingSummary } from "../api/ridings";
 import type { RidingSummary } from "../types/index";
@@ -87,6 +88,17 @@ const AVALON_EMPTY_SUMMARY: RidingSummary = {
   byYear: [],
 };
 
+// The page uses useSearchParams (for the map's fedNum deep link), which
+// requires a Router context — real usage is always inside the app's
+// BrowserRouter, so tests render inside a MemoryRouter instead.
+function renderPage(initialRoute = "/riding-lookup") {
+  return render(
+    <MemoryRouter initialEntries={[initialRoute]}>
+      <RidingLookupPage />
+    </MemoryRouter>
+  );
+}
+
 function mockFetchGeojson() {
   vi.stubGlobal(
     "fetch",
@@ -119,7 +131,7 @@ afterEach(() => {
 
 describe("RidingLookupPage — initial render", () => {
   it("renders the page header and an empty state before any riding is selected", async () => {
-    render(<RidingLookupPage />);
+    renderPage();
     expect(screen.getByRole("heading", { name: "Riding Lookup" })).toBeInTheDocument();
     expect(
       screen.getByText(/search for a riding above to see its donation summary/i)
@@ -137,7 +149,7 @@ describe("RidingLookupPage — initial render", () => {
 describe("RidingLookupPage — search", () => {
   it("shows matching suggestions by riding name as the user types", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     const input = screen.getByPlaceholderText(/search by riding name or district number/i);
     await user.type(input, "Scarborough");
     expect(await screen.findByText("Scarborough—Agincourt")).toBeInTheDocument();
@@ -146,7 +158,7 @@ describe("RidingLookupPage — search", () => {
 
   it("shows matching suggestions by district number as the user types", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     const input = screen.getByPlaceholderText(/search by riding name or district number/i);
     await user.type(input, "10006");
     expect(await screen.findByText("Avalon")).toBeInTheDocument();
@@ -154,7 +166,7 @@ describe("RidingLookupPage — search", () => {
 
   it("shows a 'no matching ridings' message when nothing matches", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     const input = screen.getByPlaceholderText(/search by riding name or district number/i);
     await user.type(input, "zzz-does-not-exist");
     expect(await screen.findByText("No matching ridings")).toBeInTheDocument();
@@ -162,7 +174,7 @@ describe("RidingLookupPage — search", () => {
 
   it("caps suggestions and matches case-insensitively", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     const input = screen.getByPlaceholderText(/search by riding name or district number/i);
     await user.type(input, "avalon"); // lowercase, real data is "Avalon"
     expect(await screen.findByText("Avalon")).toBeInTheDocument();
@@ -171,7 +183,7 @@ describe("RidingLookupPage — search", () => {
   it("selecting a suggestion clears the query, closes the dropdown, and shows the riding header", async () => {
     mockedFetchRidingSummary.mockResolvedValue(AGINCOURT_SUMMARY);
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
 
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
 
@@ -184,7 +196,7 @@ describe("RidingLookupPage — search", () => {
   it("calls fetchRidingSummary with the selected riding's fedNum", async () => {
     mockedFetchRidingSummary.mockResolvedValue(AGINCOURT_SUMMARY);
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     expect(mockedFetchRidingSummary).toHaveBeenCalledWith(35092);
     expect(mockedFetchRidingSummary).toHaveBeenCalledTimes(1);
@@ -200,7 +212,7 @@ describe("RidingLookupPage — loading state", () => {
       })
     );
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
 
     expect(screen.getByText("Loading…")).toBeInTheDocument();
@@ -218,7 +230,7 @@ describe("RidingLookupPage — error state", () => {
   it("shows an error message instead of fake data when the fetch rejects", async () => {
     mockedFetchRidingSummary.mockRejectedValue(new Error("Network exploded"));
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
 
     const errorNodes = await screen.findAllByText("Network exploded");
@@ -230,7 +242,7 @@ describe("RidingLookupPage — error state", () => {
   it("falls back to a generic message when the rejection isn't an Error instance", async () => {
     mockedFetchRidingSummary.mockRejectedValue("plain string rejection");
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
 
     expect((await screen.findAllByText("Failed to load data")).length).toBeGreaterThan(0);
@@ -244,7 +256,7 @@ describe("RidingLookupPage — All-Time stat cards (default view)", () => {
 
   it("defaults the year picker to All-Time", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
     expect(screen.getByRole("button", { name: /all-time/i })).toBeInTheDocument();
@@ -252,7 +264,7 @@ describe("RidingLookupPage — All-Time stat cards (default view)", () => {
 
   it("shows correct all-time total donations, count, and top party by total", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
 
     expect(await screen.findByText("$1.4M")).toBeInTheDocument();
@@ -265,7 +277,7 @@ describe("RidingLookupPage — All-Time stat cards (default view)", () => {
 
   it("renders the bar chart sorted descending by total amount, with correct formatted values", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -288,7 +300,7 @@ describe("RidingLookupPage — year selection", () => {
 
   it("updates both the stat cards and the chart when a specific year is picked", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -308,7 +320,7 @@ describe("RidingLookupPage — year selection", () => {
 
   it("shows the picked year as the active option and as the button label", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -320,7 +332,7 @@ describe("RidingLookupPage — year selection", () => {
 
   it("shows a 'no donations recorded for <year>' message for a year with no rows", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -334,7 +346,7 @@ describe("RidingLookupPage — year selection", () => {
 
   it("keeps the dropdown open after checking a year, so more years can be added", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -347,7 +359,7 @@ describe("RidingLookupPage — year selection", () => {
 
   it("combines totals across multiple selected years", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -372,7 +384,7 @@ describe("RidingLookupPage — year selection", () => {
 
   it("shows a note that totals are combined when more than one year is selected", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -386,7 +398,7 @@ describe("RidingLookupPage — year selection", () => {
 
   it("falls back to All-Time automatically when every selected year is unchecked", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -412,7 +424,7 @@ describe("RidingLookupPage — metric toggle (Total vs Average)", () => {
 
   it("switches the headline stat card from Total Donations to Average Donation Size", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -432,7 +444,7 @@ describe("RidingLookupPage — metric toggle (Total vs Average)", () => {
 
   it("re-ranks Top Party by average instead of by total when Average is selected", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -455,7 +467,7 @@ describe("RidingLookupPage — metric toggle (Total vs Average)", () => {
 
   it("relabels the chart title with the active metric", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -471,7 +483,7 @@ describe("RidingLookupPage — view toggle (Bar vs Pie)", () => {
 
   it("renders the bar view by default", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
     expect(document.querySelector(".riding-party-list")).toBeInTheDocument();
@@ -480,7 +492,7 @@ describe("RidingLookupPage — view toggle (Bar vs Pie)", () => {
 
   it("switches to a pie chart with a legend when the pie button is clicked", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -496,7 +508,7 @@ describe("RidingLookupPage — view toggle (Bar vs Pie)", () => {
 
   it("disables the pie button when the Average metric is selected", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -507,7 +519,7 @@ describe("RidingLookupPage — view toggle (Bar vs Pie)", () => {
 
   it("automatically falls back to bar view if pie was active and metric switches to average", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -527,7 +539,7 @@ describe("RidingLookupPage — party filter toggles", () => {
 
   it("shows a clickable chip for every party present in the current view", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -538,7 +550,7 @@ describe("RidingLookupPage — party filter toggles", () => {
 
   it("removes a party from the bar chart when its chip is clicked, without touching the stat cards", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -560,7 +572,7 @@ describe("RidingLookupPage — party filter toggles", () => {
 
   it("re-adds the party when its chip is clicked again", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -574,7 +586,7 @@ describe("RidingLookupPage — party filter toggles", () => {
 
   it("also filters the pie chart legend", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -588,7 +600,7 @@ describe("RidingLookupPage — party filter toggles", () => {
 
   it("shows a message when every party has been toggled off, but keeps the chips visible", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -610,7 +622,7 @@ describe("RidingLookupPage — party filter toggles", () => {
       Promise.resolve(fedNum === 35092 ? AGINCOURT_SUMMARY : LAURIER_SUMMARY)
     );
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
 
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
@@ -626,11 +638,55 @@ describe("RidingLookupPage — party filter toggles", () => {
   });
 });
 
+describe("RidingLookupPage — deep link from the map (?fedNum=)", () => {
+  it("auto-selects the riding matching the fedNum query param once the riding list has loaded", async () => {
+    mockedFetchRidingSummary.mockResolvedValue(AGINCOURT_SUMMARY);
+    renderPage("/riding-lookup?fedNum=35092");
+
+    expect(await screen.findByText("District 35092")).toBeInTheDocument();
+    expect(screen.getByText("Scarborough—Agincourt")).toBeInTheDocument();
+    expect(mockedFetchRidingSummary).toHaveBeenCalledWith(35092);
+  });
+
+  it("removes the fedNum param from the URL after applying it", async () => {
+    mockedFetchRidingSummary.mockResolvedValue(AGINCOURT_SUMMARY);
+    renderPage("/riding-lookup?fedNum=35092");
+
+    await screen.findByText("District 35092");
+    expect(window.location.search).not.toContain("fedNum");
+  });
+
+  it("does nothing when the fedNum in the URL doesn't match any riding", async () => {
+    renderPage("/riding-lookup?fedNum=999999");
+
+    // Flush the geojson load.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(
+      screen.getByText(/search for a riding above to see its donation summary/i)
+    ).toBeInTheDocument();
+    expect(mockedFetchRidingSummary).not.toHaveBeenCalled();
+  });
+
+  it("behaves like a normal visit when there's no fedNum param at all", async () => {
+    renderPage("/riding-lookup");
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(
+      screen.getByText(/search for a riding above to see its donation summary/i)
+    ).toBeInTheDocument();
+    expect(mockedFetchRidingSummary).not.toHaveBeenCalled();
+  });
+});
+
 describe("RidingLookupPage — dropdown dismissal", () => {
   it("closes the year dropdown when clicking outside of it", async () => {
     mockedFetchRidingSummary.mockResolvedValue(AGINCOURT_SUMMARY);
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -646,7 +702,7 @@ describe("RidingLookupPage — dropdown dismissal", () => {
   it("closes the year dropdown via its own Done button", async () => {
     mockedFetchRidingSummary.mockResolvedValue(AGINCOURT_SUMMARY);
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -661,7 +717,7 @@ describe("RidingLookupPage — dropdown dismissal", () => {
 
   it("closes the search suggestions when clicking outside of the search box", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     const input = screen.getByPlaceholderText(/search by riding name or district number/i);
     await user.type(input, "Scarborough");
     expect(await screen.findByText("Scarborough—Agincourt")).toBeInTheDocument();
@@ -693,7 +749,7 @@ describe("RidingLookupPage — Top Party reduce edge cases", () => {
     };
     mockedFetchRidingSummary.mockResolvedValue(unsortedSummary);
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
 
     const topPartyCard = await screen.findByText("Top Party");
@@ -716,7 +772,7 @@ describe("RidingLookupPage — Top Party reduce edge cases", () => {
     };
     mockedFetchRidingSummary.mockResolvedValue(zeroCountSummary);
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("Top Party");
 
@@ -744,7 +800,7 @@ describe("RidingLookupPage — unmapped party color fallback", () => {
     };
     mockedFetchRidingSummary.mockResolvedValue(summaryWithUnknownParty);
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
 
     const partyList = await screen.findByText("IND", { selector: ".riding-party-label span" });
@@ -766,7 +822,7 @@ describe("RidingLookupPage — a riding with genuinely zero donations", () => {
 
   it("shows zero totals rather than an error, and a 'no donations recorded' chart/top-party state", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Avalon", "Avalon");
 
     expect(await screen.findByText("$0")).toBeInTheDocument();
@@ -776,7 +832,7 @@ describe("RidingLookupPage — a riding with genuinely zero donations", () => {
 
   it("does not show the metric/view toggle controls or party chips when there is no chartable data", async () => {
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Avalon", "Avalon");
     await screen.findByText("$0");
     expect(screen.queryByRole("button", { name: "Total Amount" })).not.toBeInTheDocument();
@@ -788,7 +844,7 @@ describe("RidingLookupPage — clearing and switching ridings", () => {
   it("clicking the close button returns to the empty state", async () => {
     mockedFetchRidingSummary.mockResolvedValue(AGINCOURT_SUMMARY);
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
@@ -806,7 +862,7 @@ describe("RidingLookupPage — clearing and switching ridings", () => {
       Promise.resolve(fedNum === 35092 ? AGINCOURT_SUMMARY : AVALON_EMPTY_SUMMARY)
     );
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
 
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
@@ -829,7 +885,7 @@ describe("RidingLookupPage — clearing and switching ridings", () => {
   it("can navigate back to All-Time, Total Amount, and Bar explicitly via their own buttons", async () => {
     mockedFetchRidingSummary.mockResolvedValue(AGINCOURT_SUMMARY);
     const user = userEvent.setup();
-    render(<RidingLookupPage />);
+    renderPage();
     await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
     await screen.findByText("$1.4M");
 
