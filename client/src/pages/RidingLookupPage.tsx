@@ -579,8 +579,8 @@ export function RidingLookupPage() {
                         title={isOff ? `Show ${p.party} in the chart` : `Hide ${p.party} from the chart`}
                       >
                         <span
-                          className="riding-party-dot"
-                          style={{ background: PARTY_COLORS[p.party] ?? "#999" }}
+                          className="riding-party-filter-swatch"
+                          style={{ background: isOff ? "#c4c9d0" : PARTY_COLORS[p.party] ?? "#999" }}
                         />
                         {p.party}
                       </button>
