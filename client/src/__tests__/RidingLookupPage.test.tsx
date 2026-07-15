@@ -1,19 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, within, act } from "@testing-library/react";
+import { render, screen, within, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { RidingLookupPage } from "../pages/RidingLookupPage";
-import { fetchRidingSummary } from "../api/ridings";
-import type { RidingSummary } from "../types/index";
+import { fetchRidingSummary, fetchRidingRankings } from "../api/ridings";
+import type { RidingRankingsResponse, RidingSummary } from "../types/index";
 
-// The component imports fetchRidingSummary directly — mocking the module
-// lets each test control exactly what the "backend" returns without any
-// real network call, and without needing a running Express server.
+// The component imports fetchRidingSummary/fetchRidingRankings directly —
+// mocking the module lets each test control exactly what the "backend"
+// returns without any real network call, and without needing a running
+// Express server.
 vi.mock("../api/ridings", () => ({
   fetchRidingSummary: vi.fn(),
+  fetchRidingRankings: vi.fn(),
 }));
 
 const mockedFetchRidingSummary = vi.mocked(fetchRidingSummary);
+const mockedFetchRidingRankings = vi.mocked(fetchRidingRankings);
 
 // ── Fixture data ────────────────────────────────────────────────────────
 
@@ -88,6 +91,23 @@ const AVALON_EMPTY_SUMMARY: RidingSummary = {
   byYear: [],
 };
 
+// Default /api/ridings/rankings fixture used by most tests. Avalon (10006) is
+// deliberately absent — a riding with zero donations never appears in this
+// list, same as the real endpoint (it only aggregates rows that exist).
+const DEFAULT_RANKINGS: RidingRankingsResponse = {
+  ridings: [
+    { fedNum: 35092, totalMonetary: 1_400_000, donationCount: 11_013, donorCount: 5_000 },
+    { fedNum: 24037, totalMonetary: 1_400_000, donationCount: 11_013, donorCount: 5_000 },
+  ],
+  ridingCount: 2,
+  nationalTotals: {
+    totalMonetary: 2_800_000,
+    donationCount: 22_026,
+    donorCount: 10_000,
+    byParty: [],
+  },
+};
+
 // The page uses useSearchParams (for the map's fedNum deep link), which
 // requires a Router context — real usage is always inside the app's
 // BrowserRouter, so tests render inside a MemoryRouter instead.
@@ -123,6 +143,8 @@ async function openYearDropdown(user: ReturnType<typeof userEvent.setup>) {
 beforeEach(() => {
   mockFetchGeojson();
   mockedFetchRidingSummary.mockReset();
+  mockedFetchRidingRankings.mockReset();
+  mockedFetchRidingRankings.mockResolvedValue(DEFAULT_RANKINGS);
 });
 
 afterEach(() => {
@@ -909,5 +931,118 @@ describe("RidingLookupPage — clearing and switching ridings", () => {
     await user.click(screen.getByRole("button", { name: "2023" }));
     await user.click(screen.getByRole("button", { name: "All-Time" }));
     expect(screen.getAllByText("All years combined").length).toBe(2);
+  });
+});
+
+describe("RidingLookupPage — national rank & average comparison", () => {
+  it("shows the national rank and a multiple-of-average comparison", async () => {
+    mockedFetchRidingRankings.mockResolvedValue({
+      ridings: [
+        { fedNum: 99001, totalMonetary: 2_000_000, donationCount: 1, donorCount: 1 },
+        { fedNum: 35092, totalMonetary: 1_400_000, donationCount: 11_013, donorCount: 5_000 },
+        { fedNum: 99002, totalMonetary: 100_000, donationCount: 1, donorCount: 1 },
+      ],
+      ridingCount: 3,
+      nationalTotals: { totalMonetary: 3_500_000, donationCount: 3, donorCount: 3, byParty: [] },
+    });
+    mockedFetchRidingSummary.mockResolvedValue(AGINCOURT_SUMMARY);
+    const user = userEvent.setup();
+    renderPage();
+    await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
+    await screen.findByText("$1.4M");
+
+    // Regex-based getByText would match every ancestor whose concatenated
+    // textContent contains the phrase (multiple matches) — check the specific
+    // card's textContent directly instead.
+    const [rankCard, averageCard] = document.querySelectorAll(".riding-context-card");
+    expect(rankCard.textContent).toMatch(/ranks #2 of 3 ridings/i);
+    // national average = 3,500,000 / 3 ≈ 1,166,667; 1,400,000 / that ≈ 1.2×
+    expect(averageCard.textContent).toMatch(/1\.2× the average riding/i);
+  });
+
+  it("shows 'not ranked' for a riding with no recorded donations", async () => {
+    // DEFAULT_RANKINGS (set in beforeEach) deliberately omits Avalon (10006).
+    mockedFetchRidingSummary.mockResolvedValue(AVALON_EMPTY_SUMMARY);
+    const user = userEvent.setup();
+    renderPage();
+    await selectRiding(user, "Avalon", "Avalon");
+
+    await waitFor(() => {
+      const [rankCard] = document.querySelectorAll(".riding-context-card");
+      expect(rankCard?.textContent).toMatch(/not ranked — no donations recorded/i);
+    });
+  });
+});
+
+describe("RidingLookupPage — province and has-data search filters", () => {
+  it("narrows search suggestions to the selected province", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const input = screen.getByPlaceholderText(/search by riding name or district number/i);
+    await user.type(input, "a");
+
+    expect(await screen.findByText("Scarborough—Agincourt")).toBeInTheDocument();
+    expect(screen.getByText("Avalon")).toBeInTheDocument();
+    expect(screen.getByText("Laurier—Sainte-Marie")).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText(/filter by province/i), "ON");
+
+    expect(screen.getByText("Scarborough—Agincourt")).toBeInTheDocument();
+    expect(screen.queryByText("Avalon")).not.toBeInTheDocument();
+    expect(screen.queryByText("Laurier—Sainte-Marie")).not.toBeInTheDocument();
+  });
+
+  it("hides ridings with no recorded donations when the has-data filter is checked", async () => {
+    // DEFAULT_RANKINGS (set in beforeEach) only contains 35092 and 24037.
+    const user = userEvent.setup();
+    renderPage();
+    const input = screen.getByPlaceholderText(/search by riding name or district number/i);
+    await user.type(input, "a");
+    expect(await screen.findByText("Avalon")).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText(/only ridings with donations/i));
+
+    expect(screen.queryByText("Avalon")).not.toBeInTheDocument();
+    expect(screen.getByText("Scarborough—Agincourt")).toBeInTheDocument();
+    expect(screen.getByText("Laurier—Sainte-Marie")).toBeInTheDocument();
+  });
+});
+
+describe("RidingLookupPage — compare mode", () => {
+  it("opens a compare panel and shows a second riding's all-time totals", async () => {
+    mockedFetchRidingSummary.mockImplementation(fedNum =>
+      Promise.resolve(fedNum === 35092 ? AGINCOURT_SUMMARY : LAURIER_SUMMARY)
+    );
+    const user = userEvent.setup();
+    renderPage();
+    await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
+    await screen.findByText("$1.4M");
+
+    await user.click(screen.getByRole("button", { name: /^compare$/i }));
+    const compareInput = await screen.findByPlaceholderText(/search for a riding to compare/i);
+    await user.type(compareInput, "Laurier");
+    await user.click(await screen.findByText("Laurier—Sainte-Marie"));
+
+    const compareBox = document.querySelector(".riding-compare-box");
+    expect(compareBox).not.toBeNull();
+    // Laurier shares Agincourt's fixture numbers, so both columns show $1.4M.
+    const totals = within(compareBox as HTMLElement).getAllByText("$1.4M");
+    expect(totals.length).toBe(2);
+  });
+
+  it("closes the compare panel when a different primary riding is selected", async () => {
+    mockedFetchRidingSummary.mockImplementation(fedNum =>
+      Promise.resolve(fedNum === 35092 ? AGINCOURT_SUMMARY : AVALON_EMPTY_SUMMARY)
+    );
+    const user = userEvent.setup();
+    renderPage();
+    await selectRiding(user, "Scarborough", "Scarborough—Agincourt");
+    await screen.findByText("$1.4M");
+    await user.click(screen.getByRole("button", { name: /^compare$/i }));
+    expect(document.querySelector(".riding-compare-box")).not.toBeNull();
+
+    await selectRiding(user, "Avalon", "Avalon");
+
+    expect(document.querySelector(".riding-compare-box")).toBeNull();
   });
 });

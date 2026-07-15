@@ -1,10 +1,93 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { getSupabase } from "../lib/supabase";
-import type { RidingPartyBreakdown, RidingSummary, RidingYearSummary } from "../types/index";
+import type {
+  RidingPartyBreakdown,
+  RidingRankingEntry,
+  RidingRankingsResponse,
+  RidingSummary,
+  RidingYearSummary,
+} from "../types/index";
 import { groupByRiding } from "../utils/groupings";
 
 const router = Router();
+
+// GET /api/ridings/rankings — all-time totals for every riding (summed across
+// every year and party), plus national all-time totals. Powers the Riding
+// Lookup page's "#N of 343" rank badge and "vs. national average" comparison.
+// Reuses the same riding_party_summary table as the routes below — just a
+// different aggregation (no year filter, grouped by fed_num only) — so no new
+// table is needed.
+router.get("/rankings", async (_req: Request, res: Response) => {
+  const PAGE = 1000;
+  let allRows: { fed_num: number; party: string; total_monetary: number; donation_count: number; donor_count: number }[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await getSupabase()
+      .from("riding_party_summary")
+      .select("fed_num, party, total_monetary, donation_count, donor_count")
+      .range(from, from + PAGE - 1);
+
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+
+    allRows = allRows.concat(data ?? []);
+    if ((data?.length ?? 0) < PAGE) break;
+    from += PAGE;
+  }
+
+  const byRidingMap: Record<number, RidingRankingEntry> = {};
+  const nationalByPartyMap: Record<string, RidingPartyBreakdown> = {};
+  let nationalTotalMonetary = 0;
+  let nationalDonationCount = 0;
+  let nationalDonorCount = 0;
+
+  for (const row of allRows) {
+    const fedNum = Number(row["fed_num"]);
+    const party = String(row["party"]);
+    const totalMonetary = Number(row["total_monetary"]);
+    const donationCount = Number(row["donation_count"]);
+    const donorCount = Number(row["donor_count"]);
+
+    if (!byRidingMap[fedNum]) {
+      byRidingMap[fedNum] = { fedNum, totalMonetary: 0, donationCount: 0, donorCount: 0 };
+    }
+    byRidingMap[fedNum].totalMonetary += totalMonetary;
+    byRidingMap[fedNum].donationCount += donationCount;
+    byRidingMap[fedNum].donorCount += donorCount;
+
+    nationalTotalMonetary += totalMonetary;
+    nationalDonationCount += donationCount;
+    nationalDonorCount += donorCount;
+
+    if (!nationalByPartyMap[party]) {
+      nationalByPartyMap[party] = { party, totalMonetary: 0, donationCount: 0, donorCount: 0 };
+    }
+    nationalByPartyMap[party].totalMonetary += totalMonetary;
+    nationalByPartyMap[party].donationCount += donationCount;
+    nationalByPartyMap[party].donorCount += donorCount;
+  }
+
+  // Sorted descending by total raised — the frontend finds this riding's rank
+  // by locating its fedNum in this array (index + 1).
+  const ridings = Object.values(byRidingMap).sort((a, b) => b.totalMonetary - a.totalMonetary);
+
+  const response: RidingRankingsResponse = {
+    ridings,
+    ridingCount: ridings.length,
+    nationalTotals: {
+      totalMonetary: nationalTotalMonetary,
+      donationCount: nationalDonationCount,
+      donorCount: nationalDonorCount,
+      byParty: Object.values(nationalByPartyMap),
+    },
+  };
+
+  res.json(response);
+});
 
 // GET /api/ridings/summary?year=2022 — all ridings for choropleth map
 router.get("/summary", async (req: Request, res: Response) => {

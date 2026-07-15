@@ -1,8 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Search, MapPin, X, BarChart3, PieChart, CalendarRange, ChevronDown } from "lucide-react";
-import { fetchRidingSummary } from "../api/ridings";
-import type { RidingSummary, RidingPartyBreakdown } from "../types/index";
+import {
+  Search,
+  MapPin,
+  X,
+  BarChart3,
+  PieChart,
+  CalendarRange,
+  ChevronDown,
+  Award,
+  TrendingUp,
+  GitCompare,
+} from "lucide-react";
+import { fetchRidingSummary, fetchRidingRankings } from "../api/ridings";
+import type { RidingSummary, RidingPartyBreakdown, RidingRankingsResponse } from "../types/index";
+import { provinceForFedNum, ALL_PROVINCES } from "../utils/province";
 import "./RidingLookupPage.css";
 
 // ── Types ───────────────────────────────────────────────────────────────
@@ -113,6 +125,13 @@ export function RidingLookupPage() {
   const [summary, setSummary] = useState<RidingSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  // All-time totals for every riding, fetched once (not per-riding) and used
+  // for the national rank badge, the "vs. national average" comparison, and
+  // the "only ridings with donations" search filter.
+  const [rankings, setRankings] = useState<RidingRankingsResponse | null>(null);
+  const [provinceFilter, setProvinceFilter] = useState<string | null>(null);
+  const [onlyWithData, setOnlyWithData] = useState(false);
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const yearDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -127,6 +146,15 @@ export function RidingLookupPage() {
           .sort((a, b) => a.name.localeCompare(b.name));
         setRidings(options);
       })
+      .catch(console.error);
+  }, []);
+
+  // All-time totals for every riding — fetched once, independent of which
+  // riding is selected. If it fails, the page just falls back to not showing
+  // rank/average comparisons rather than blocking the rest of the page.
+  useEffect(() => {
+    fetchRidingRankings()
+      .then(setRankings)
       .catch(console.error);
   }, []);
 
@@ -172,6 +200,7 @@ export function RidingLookupPage() {
     if (!selected) {
       setSummary(null);
       setSummaryError(null);
+      setIsCompareOpen(false);
       return;
     }
     setYearMode("all");
@@ -179,6 +208,7 @@ export function RidingLookupPage() {
     setMetric("total");
     setViewType("bar");
     setExcludedParties(new Set());
+    setIsCompareOpen(false);
     setSummaryLoading(true);
     setSummaryError(null);
     fetchRidingSummary(selected.fedNum)
@@ -232,6 +262,37 @@ export function RidingLookupPage() {
     return activeStats.totalMonetary / activeStats.donationCount;
   }, [activeStats]);
 
+  // Province derived from the riding's own FED_NUM — no extra data needed.
+  const selectedProvince = useMemo(
+    () => (selected ? provinceForFedNum(selected.fedNum) : null),
+    [selected]
+  );
+
+  // Which ridings have at least one donation recorded, ever — used by the
+  // "only ridings with donations" search filter. rankings.ridings only
+  // contains ridings that showed up in at least one riding_party_summary row,
+  // so absence from this set means genuinely zero donations.
+  const ridingsWithDataSet = useMemo(
+    () => new Set(rankings?.ridings.map(r => r.fedNum) ?? []),
+    [rankings]
+  );
+
+  // National average total per riding (all-time, regardless of the year
+  // picker above) — the denominator for the "vs. national average" comparison.
+  const nationalAverageTotal = useMemo(() => {
+    if (!rankings || rankings.ridingCount === 0) return null;
+    return rankings.nationalTotals.totalMonetary / rankings.ridingCount;
+  }, [rankings]);
+
+  // This riding's 1-indexed rank by all-time total raised, among ridings that
+  // have any donations at all. null if rankings haven't loaded yet, or if
+  // this riding has never received a donation (so it isn't in the list).
+  const ridingRank = useMemo(() => {
+    if (!rankings || !selected) return null;
+    const idx = rankings.ridings.findIndex(r => r.fedNum === selected.fedNum);
+    return idx === -1 ? null : idx + 1;
+  }, [rankings, selected]);
+
   // Chart rows derived from the selected metric, with any parties the user
   // has toggled off filtered out. "total" = raw $ per party (shown as a share
   // of the riding's whole). "average" = $ per donation per party (no shared
@@ -273,8 +334,12 @@ export function RidingLookupPage() {
     if (!q) return [];
     return ridings
       .filter(r => r.name.toLowerCase().includes(q) || String(r.fedNum).includes(q))
+      .filter(r => !provinceFilter || provinceForFedNum(r.fedNum)?.code === provinceFilter)
+      // ridingsWithDataSet is empty until rankings load — don't filter anything
+      // out before we actually know which ridings have data.
+      .filter(r => !onlyWithData || ridingsWithDataSet.size === 0 || ridingsWithDataSet.has(r.fedNum))
       .slice(0, MAX_SUGGESTIONS);
-  }, [ridings, query]);
+  }, [ridings, query, provinceFilter, onlyWithData, ridingsWithDataSet]);
 
   function handleSelect(riding: RidingOption) {
     setSelected(riding);
@@ -352,6 +417,30 @@ export function RidingLookupPage() {
           />
         </div>
 
+        <div className="riding-search-filters">
+          <select
+            className="riding-province-select"
+            aria-label="Filter by province"
+            value={provinceFilter ?? ""}
+            onChange={e => setProvinceFilter(e.target.value || null)}
+          >
+            <option value="">All provinces</option>
+            {ALL_PROVINCES.map(p => (
+              <option key={p.code} value={p.code}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <label className="riding-has-data-toggle">
+            <input
+              type="checkbox"
+              checked={onlyWithData}
+              onChange={e => setOnlyWithData(e.target.checked)}
+            />
+            <span>Only ridings with donations</span>
+          </label>
+        </div>
+
         {isOpen && query.trim() && (
           <div className="riding-suggestions">
             {suggestions.length > 0 ? (
@@ -384,12 +473,37 @@ export function RidingLookupPage() {
           <div className="riding-results-header">
             <div>
               <div className="riding-results-name">{selected.name}</div>
-              <div className="riding-results-code">District {selected.fedNum}</div>
+              <div className="riding-results-meta">
+                <span className="riding-results-code">District {selected.fedNum}</span>
+                {selectedProvince && (
+                  <span className="riding-results-province">{selectedProvince.name}</span>
+                )}
+              </div>
             </div>
-            <button type="button" className="riding-results-close" onClick={handleClear}>
-              <X size={16} />
-            </button>
+            <div className="riding-results-actions">
+              <button
+                type="button"
+                className="riding-compare-toggle"
+                onClick={() => setIsCompareOpen(o => !o)}
+                aria-pressed={isCompareOpen}
+              >
+                <GitCompare size={14} />
+                {isCompareOpen ? "Hide Comparison" : "Compare"}
+              </button>
+              <button type="button" className="riding-results-close" onClick={handleClear}>
+                <X size={16} />
+              </button>
+            </div>
           </div>
+
+          {isCompareOpen && (
+            <RidingCompareBox
+              ridings={ridings}
+              primary={selected}
+              primarySummary={summary}
+              onClose={() => setIsCompareOpen(false)}
+            />
+          )}
 
           <div className="riding-year-section">
             <div className="riding-year-picker" ref={yearDropdownRef}>
@@ -517,6 +631,43 @@ export function RidingLookupPage() {
             </div>
           </div>
 
+          {(summaryLoading || summary) && (
+            <div className="riding-context-row">
+              <div className="riding-context-card">
+                <Award size={14} className="riding-context-icon" />
+                {summaryLoading ? (
+                  <span>…</span>
+                ) : summaryError ? (
+                  <span className="riding-stat-note--error">{summaryError}</span>
+                ) : ridingRank ? (
+                  <span>
+                    Ranks <strong>#{ridingRank}</strong> of {rankings?.ridingCount} ridings by
+                    all-time total raised
+                  </span>
+                ) : rankings ? (
+                  <span>Not ranked — no donations recorded</span>
+                ) : (
+                  <span>Loading rank…</span>
+                )}
+              </div>
+              <div className="riding-context-card">
+                <TrendingUp size={14} className="riding-context-icon" />
+                {summaryLoading ? (
+                  <span>…</span>
+                ) : summaryError ? (
+                  <span className="riding-stat-note--error">{summaryError}</span>
+                ) : nationalAverageTotal && nationalAverageTotal > 0 && summary ? (
+                  <span>
+                    {(summary.allTime.totalMonetary / nationalAverageTotal).toFixed(1)}× the
+                    average riding (national average: {formatMoney(nationalAverageTotal)} all-time)
+                  </span>
+                ) : (
+                  <span>Loading comparison…</span>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="riding-charts-row">
             <div className="riding-chart-card">
               <div className="riding-chart-header">
@@ -643,6 +794,157 @@ export function RidingLookupPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Compare box ─────────────────────────────────────────────────────────
+// A lightweight side-by-side comparison against a second riding, shown when
+// the user clicks "Compare" on an already-selected riding. Deliberately kept
+// separate from the main chart/year/metric machinery above — it always
+// compares all-time totals, so it doesn't need to track its own year or
+// metric state, and switching the primary riding closes it automatically.
+
+interface RidingCompareBoxProps {
+  ridings: RidingOption[];
+  primary: RidingOption;
+  primarySummary: RidingSummary | null;
+  onClose: () => void;
+}
+
+function topPartyByTotal(summary: RidingSummary | null): RidingPartyBreakdown | null {
+  if (!summary || summary.allTime.byParty.length === 0) return null;
+  return summary.allTime.byParty.reduce((top, p) => (p.totalMonetary > top.totalMonetary ? p : top));
+}
+
+function RidingCompareBox({ ridings, primary, primarySummary, onClose }: RidingCompareBoxProps) {
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const [selected, setSelected] = useState<RidingOption | null>(null);
+  const [summary, setSummary] = useState<RidingSummary | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      if (boxRef.current && !boxRef.current.contains(target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!selected) {
+      setSummary(null);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    fetchRidingSummary(selected.fedNum)
+      .then(setSummary)
+      .catch(err => setError(err instanceof Error ? err.message : "Failed to load data"))
+      .finally(() => setLoading(false));
+  }, [selected]);
+
+  const suggestions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    return ridings
+      .filter(r => r.fedNum !== primary.fedNum)
+      .filter(r => r.name.toLowerCase().includes(q) || String(r.fedNum).includes(q))
+      .slice(0, MAX_SUGGESTIONS);
+  }, [ridings, query, primary.fedNum]);
+
+  const primaryTop = topPartyByTotal(primarySummary);
+  const compareTop = topPartyByTotal(summary);
+
+  return (
+    <div className="riding-compare-box" ref={boxRef}>
+      <div className="riding-compare-header">
+        <span>Comparing with</span>
+        <button type="button" className="riding-compare-close" onClick={onClose} aria-label="Close comparison">
+          <X size={14} />
+        </button>
+      </div>
+
+      {!selected ? (
+        <div className="riding-compare-search">
+          <input
+            type="text"
+            className="riding-compare-search-input"
+            placeholder="Search for a riding to compare…"
+            value={query}
+            onChange={e => {
+              setQuery(e.target.value);
+              setIsOpen(true);
+            }}
+            onFocus={() => setIsOpen(true)}
+          />
+          {isOpen && query.trim() && (
+            <div className="riding-suggestions">
+              {suggestions.length > 0 ? (
+                suggestions.map(r => (
+                  <button
+                    key={r.fedNum}
+                    type="button"
+                    className="riding-suggestion-item"
+                    onClick={() => {
+                      setSelected(r);
+                      setQuery("");
+                      setIsOpen(false);
+                    }}
+                  >
+                    <MapPin size={14} className="riding-suggestion-icon" />
+                    <span className="riding-suggestion-name">{r.name}</span>
+                    <span className="riding-suggestion-code">{r.fedNum}</span>
+                  </button>
+                ))
+              ) : (
+                <div className="riding-suggestion-empty">No matching ridings</div>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="riding-compare-table">
+          <div className="riding-compare-col">
+            <div className="riding-compare-col-title">{primary.name}</div>
+            <div className="riding-compare-stat">{formatMoney(primarySummary?.allTime.totalMonetary ?? 0)}</div>
+            <div className="riding-compare-stat-label">Total Donations (All-Time)</div>
+            <div className="riding-compare-stat">{(primarySummary?.allTime.donationCount ?? 0).toLocaleString()}</div>
+            <div className="riding-compare-stat-label">Number of Donations</div>
+            <div className="riding-compare-stat">{primaryTop ? primaryTop.party : "—"}</div>
+            <div className="riding-compare-stat-label">Top Party</div>
+          </div>
+
+          <div className="riding-compare-col">
+            <div className="riding-compare-col-title">
+              {selected.name}
+              <button type="button" className="riding-compare-change" onClick={() => setSelected(null)}>
+                Change
+              </button>
+            </div>
+            {loading ? (
+              <div className="riding-compare-stat">…</div>
+            ) : error ? (
+              <div className="riding-stat-note--error">{error}</div>
+            ) : (
+              <>
+                <div className="riding-compare-stat">{formatMoney(summary?.allTime.totalMonetary ?? 0)}</div>
+                <div className="riding-compare-stat-label">Total Donations (All-Time)</div>
+                <div className="riding-compare-stat">{(summary?.allTime.donationCount ?? 0).toLocaleString()}</div>
+                <div className="riding-compare-stat-label">Number of Donations</div>
+                <div className="riding-compare-stat">{compareTop ? compareTop.party : "—"}</div>
+                <div className="riding-compare-stat-label">Top Party</div>
+              </>
+            )}
           </div>
         </div>
       )}
