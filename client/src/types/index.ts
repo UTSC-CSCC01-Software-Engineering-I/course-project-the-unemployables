@@ -106,3 +106,21 @@ export interface RidingSummary {
   };
   byYear: RidingYearSummary[];
 }
+
+export interface RidingRankingEntry {
+  fedNum: number;
+  totalMonetary: number;
+  donationCount: number;
+  donorCount: number;
+}
+
+export interface RidingRankingsResponse {
+  ridings: RidingRankingEntry[];
+  ridingCount: number;
+  nationalTotals: {
+    totalMonetary: number;
+    donationCount: number;
+    donorCount: number;
+    byParty: RidingPartyBreakdown[];
+  };
+}
