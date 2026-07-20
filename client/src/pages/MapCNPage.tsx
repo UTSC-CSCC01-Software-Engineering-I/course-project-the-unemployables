@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+// import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useNavigate } from "react-router-dom";
 import { Map, MapControls, useMap } from "@/components/ui/map";
 import { InvalidFilterPopUp } from "@/components/ui/invalidFilterPopUp";
@@ -15,7 +15,7 @@ type RegionSummary = {
   totalMonetary: number;
   donationCount: number;
   donorCount: number;
-  byParty: { party: string; totalMonetary: number; donationCount: number }[];
+  byParty?: { party: string; totalMonetary: number; donationCount: number }[];
 };
 
 const API = "http://localhost:3001";
@@ -135,7 +135,10 @@ export function MapCNPage() {
   const [regionData, setRegionData] = useState<RegionSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
+  const [selectedParty, setSelectedParty] = useState<string | null>(null);
+  const [isPartyDropdownOpen, setIsPartyDropdownOpen] = useState(false);
   const yearDropdownRef = useRef<HTMLDivElement>(null);
+  const partyDropdownRef = useRef<HTMLDivElement>(null);
 
   const isMultiYear = selectedYears.length > 1;
   const sortedYears = [...selectedYears].sort((a, b) => a - b);
@@ -157,9 +160,10 @@ export function MapCNPage() {
     const yearsParam = selectedYears.length === 1
       ? `year=${selectedYears[0]}`
       : `years=${selectedYears.join(",")}`;
+    const partyParam = selectedParty ? `&party=${encodeURIComponent(selectedParty)}` : "";
     const endpoint = mode === "provinces"
-      ? `/api/provinces/summary?${yearsParam}`
-      : `/api/ridings/summary?${yearsParam}`;
+      ? `/api/provinces/summary?${yearsParam}${partyParam}`
+      : `/api/ridings/summary?${yearsParam}${partyParam}`;
 
     fetch(`${API}${endpoint}`)
       .then(r => r.json())
@@ -167,23 +171,24 @@ export function MapCNPage() {
         const normalized: RegionSummary[] = (data ?? []).map((d: Record<string, unknown>) =>
           mode === "provinces"
             ? { key: d["province"] as string, totalMonetary: d["totalMonetary"] as number,
-                donationCount: d["donationCount"] as number, donorCount: d["donorCount"] as number,
-                byParty: d["byParty"] as RegionSummary["byParty"] }
+                donationCount: d["donationCount"] as number, donorCount: d["donorCount"] as number }
             : { key: String(d["fedNum"]), totalMonetary: d["totalMonetary"] as number,
-                donationCount: d["donationCount"] as number, donorCount: d["donorCount"] as number,
-                byParty: d["byParty"] as RegionSummary["byParty"] }
+                donationCount: d["donationCount"] as number, donorCount: d["donorCount"] as number }
         );
         setRegionData(normalized);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [selectedYears, mode]);
+  }, [selectedYears, mode, selectedParty]);
 
-  // Close the year dropdown on outside click.
+  // Close dropdowns on outside click.
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
       if (yearDropdownRef.current && !yearDropdownRef.current.contains(e.target as Node)) {
         setIsYearDropdownOpen(false);
+      }
+      if (partyDropdownRef.current && !partyDropdownRef.current.contains(e.target as Node)) {
+        setIsPartyDropdownOpen(false);
       }
     }
     document.addEventListener("mousedown", onClickOutside);
@@ -222,17 +227,16 @@ export function MapCNPage() {
     return () => controller.abort();
   }, [selected, mode]);
 
-  // For ridings: byParty comes from trendData (riding_year_total has no party column).
-  // For provinces: byParty comes from regionData (province bulk fetch still includes it).
+  // byParty for both provinces and ridings comes from trendData (per-region click fetch).
+  // When a party filter is active, only show that party's row.
   const infoPanelByParty: PartyBreakdown[] | null = (() => {
-    if (!selected) return null;
-    if (mode === "provinces") return selectedData?.byParty ?? null;
-    if (!trendData) return null;
+    if (!selected || !trendData) return null;
     const relevant = trendData.filter(t => selectedYears.includes(t.year));
     if (relevant.length === 0) return null;
     const partyMap: Record<string, PartyBreakdown> = {};
     for (const yearData of relevant) {
       for (const p of yearData.byParty ?? []) {
+        if (selectedParty && p.party !== selectedParty) continue;
         if (!partyMap[p.party]) partyMap[p.party] = { party: p.party, totalMonetary: 0, donationCount: 0 };
         partyMap[p.party].totalMonetary += p.totalMonetary / selectedYears.length;
         partyMap[p.party].donationCount += p.donationCount / selectedYears.length;
@@ -291,6 +295,45 @@ export function MapCNPage() {
               </div>
             )}
           </div>
+
+        <div className="map-party-picker" ref={partyDropdownRef}>
+          <button
+            type="button"
+            className="map-year-picker-button"
+            onClick={() => setIsPartyDropdownOpen(o => !o)}
+          >
+            {selectedParty && (
+              <span className="map-party-filter-dot" style={{ background: PARTY_COLORS[selectedParty] ?? "#999" }} />
+            )}
+            <span>{selectedParty ?? "All Parties"}</span>
+            <ChevronDown size={14} />
+          </button>
+
+          {isPartyDropdownOpen && (
+            <div className="map-year-dropdown" style={{ width: 150 }}>
+              <button
+                type="button"
+                className={"map-year-option" + (!selectedParty ? " map-year-option--active" : "")}
+                onClick={() => { setSelectedParty(null); setIsPartyDropdownOpen(false); }}
+              >
+                <span className="map-year-check">{!selectedParty ? "✓" : ""}</span>
+                All Parties
+              </button>
+              {Object.entries(PARTY_COLORS).map(([party, color]) => (
+                <button
+                  key={party}
+                  type="button"
+                  className={"map-year-option" + (selectedParty === party ? " map-year-option--active" : "")}
+                  onClick={() => { setSelectedParty(party); setIsPartyDropdownOpen(false); }}
+                >
+                  <span className="map-year-check">{selectedParty === party ? "✓" : ""}</span>
+                  <span className="map-party-filter-dot" style={{ background: color }} />
+                  {party}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="map-layout">
@@ -323,7 +366,7 @@ export function MapCNPage() {
               <div className="map-info-section">
                 <div className="map-info-section-title">
                   {isMultiYear
-                    ? `Average Donations (${sortedYears[0]}–${sortedYears[sortedYears.length - 1]})`
+                    ? `Average Donations (${isConsecutive ? `${sortedYears[0]}–${sortedYears[sortedYears.length - 1]}` : sortedYears.join(", ")})`
                     : `Total Donations (${selectedYears[0]})`}
                 </div>
                 {loading ? (
@@ -338,6 +381,20 @@ export function MapCNPage() {
                       {(selectedData.donationCount ?? 0).toLocaleString()} donations
                       {selectedData.donorCount ? ` · ${selectedData.donorCount.toLocaleString()} donors` : ""}
                     </div>
+                    {isMultiYear && (
+                      <>
+                        <div className="map-info-year-chips">
+                          {sortedYears.map(y => (
+                            <span key={y} className="map-info-year-chip">{y}</span>
+                          ))}
+                        </div>
+                        <div className="map-info-cumulative">
+                          <div className="map-info-cumulative-label">Cumulative ({isConsecutive ? `${sortedYears[0]}–${sortedYears[sortedYears.length - 1]}` : sortedYears.join(", ")})</div>
+                          <div className="map-info-cumulative-value">{formatMoney(selectedData.totalMonetary * selectedYears.length)}</div>
+                          <div className="map-info-sub">{Math.round(selectedData.donationCount * selectedYears.length).toLocaleString()} donations</div>
+                        </div>
+                      </>
+                    )}
                   </>
                 ) : (
                   <div className="map-info-placeholder">No data</div>
@@ -381,6 +438,7 @@ export function MapCNPage() {
                 </div>
               )}
 
+              {/* Year Trend chart — hidden for now
               <div className="map-info-section">
                 <div className="map-info-section-title">Year Trend</div>
                 {trendLoading ? (
@@ -415,6 +473,7 @@ export function MapCNPage() {
                   <div className="map-info-placeholder">No data</div>
                 )}
               </div>
+              */}
 
               {mode === "ridings" && (
                 <div className="map-info-footer">

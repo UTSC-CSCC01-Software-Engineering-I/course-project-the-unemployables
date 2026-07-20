@@ -60,6 +60,18 @@
   z-index: 20;
 }
 
+.map-party-picker {
+  position: relative;
+}
+
+.map-party-filter-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
 .map-year-dropdown-actions {
   display: flex;
   justify-content: flex-end;
@@ -322,6 +334,46 @@
 .map-info-placeholder {
   font-size: 13px;
   color: #ccc;
+}
+
+/* ── Year chips & cumulative ─────────────────────────── */
+
+.map-info-year-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.map-info-year-chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: #e8f5ef;
+  color: #2d9268;
+}
+
+.map-info-cumulative {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.map-info-cumulative-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #aaa;
+  margin-bottom: 3px;
+}
+
+.map-info-cumulative-value {
+  font-size: 19px;
+  font-weight: 700;
+  color: #1a2e24;
+  margin-bottom: 2px;
 }
 
 /* ── Party breakdown ─────────────────────────────────── */
