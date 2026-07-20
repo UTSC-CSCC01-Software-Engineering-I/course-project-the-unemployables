@@ -8,7 +8,6 @@ import type {
   RidingSummary,
   RidingYearSummary,
 } from "../types/index";
-import { groupByRiding } from "../utils/groupings";
 
 const router = Router();
 
@@ -89,32 +88,54 @@ router.get("/rankings", async (_req: Request, res: Response) => {
   res.json(response);
 });
 
-// GET /api/ridings/summary?year=2022 — all ridings for choropleth map
+// GET /api/ridings/summary?year=2022        — single year
+// GET /api/ridings/summary?years=2015,2016  — multi-year average
+// Uses the riding_year_total materialized view (pre-aggregated across parties)
+// for a single fast query instead of a paginated riding_party_summary loop.
 router.get("/summary", async (req: Request, res: Response) => {
-  const year = req.query["year"] ? Number(req.query["year"]) : 2022;
+  const yearsRaw = req.query["years"] as string | undefined;
+  const yearRaw = req.query["year"];
 
-  const PAGE = 1000;
-  let allRows: { fed_num: number; party: string; total_monetary: number; donation_count: number; donor_count: number }[] = [];
-  let from = 0;
-
-  while (true) {
-    const { data, error } = await getSupabase()
-      .from("riding_party_summary")
-      .select("fed_num, party, total_monetary, donation_count, donor_count")
-      .eq("year", year)
-      .range(from, from + PAGE - 1);
-
-    if (error) {
-      res.status(500).json({ error: error.message });
-      return;
-    }
-
-    allRows = allRows.concat(data ?? []);
-    if ((data?.length ?? 0) < PAGE) break;
-    from += PAGE;
+  let years: number[];
+  if (yearsRaw) {
+    years = yearsRaw.split(",").map(Number).filter(n => Number.isInteger(n) && n > 0);
+  } else {
+    years = [yearRaw ? Number(yearRaw) : 2022];
   }
 
-  res.json({ data: groupByRiding(allRows), year });
+  const baseQuery = getSupabase()
+    .from("riding_year_total")
+    .select("fed_num, total_monetary, donation_count, donor_count");
+
+  const { data, error } = await (years.length === 1
+    ? baseQuery.eq("year", years[0])
+    : baseQuery.in("year", years));
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  const byRiding: Record<number, { fedNum: number; totalMonetary: number; donationCount: number; donorCount: number }> = {};
+  for (const row of data ?? []) {
+    const fedNum = Number(row["fed_num"]);
+    if (!byRiding[fedNum]) byRiding[fedNum] = { fedNum, totalMonetary: 0, donationCount: 0, donorCount: 0 };
+    byRiding[fedNum].totalMonetary += Number(row["total_monetary"]);
+    byRiding[fedNum].donationCount += Number(row["donation_count"]);
+    byRiding[fedNum].donorCount += Number(row["donor_count"]);
+  }
+
+  const grouped = Object.values(byRiding);
+  const result = years.length > 1
+    ? grouped.map(r => ({
+        ...r,
+        totalMonetary: r.totalMonetary / years.length,
+        donationCount: r.donationCount / years.length,
+        donorCount: r.donorCount / years.length,
+      }))
+    : grouped;
+
+  res.json({ data: result, years });
 });
 
 // GET /api/ridings/:fedNum/summary — single riding detail with all-time + per-year breakdown

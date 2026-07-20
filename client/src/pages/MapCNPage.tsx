@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useNavigate } from "react-router-dom";
 import { Map, MapControls, useMap } from "@/components/ui/map";
 import { InvalidFilterPopUp } from "@/components/ui/invalidFilterPopUp";
@@ -130,20 +131,35 @@ export function MapCNPage() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<BoundaryMode>("provinces");
   const [selected, setSelected] = useState<SelectedRegion | null>(null);
-  const [year, setYear] = useState(2022);
+  const [selectedYears, setSelectedYears] = useState<number[]>([2022]);
   const [regionData, setRegionData] = useState<RegionSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
   const yearDropdownRef = useRef<HTMLDivElement>(null);
 
+  const isMultiYear = selectedYears.length > 1;
+  const sortedYears = [...selectedYears].sort((a, b) => a - b);
+  const isConsecutive = sortedYears.every((y, i) => i === 0 || y === sortedYears[i - 1] + 1);
+  const yearLabel = selectedYears.length === 0
+    ? "Select year"
+    : selectedYears.length === 1
+    ? String(selectedYears[0])
+    : isConsecutive
+    ? `${sortedYears[0]}–${sortedYears[sortedYears.length - 1]} (avg)`
+    : `${sortedYears.join(", ")} (avg)`;
+
   const selectedData = regionData.find(r => r.key === selected?.code) ?? null;
 
   useEffect(() => {
+    if (selectedYears.length === 0) return;
     setLoading(true);
     setRegionData([]);
+    const yearsParam = selectedYears.length === 1
+      ? `year=${selectedYears[0]}`
+      : `years=${selectedYears.join(",")}`;
     const endpoint = mode === "provinces"
-      ? `/api/provinces/summary?year=${year}`
-      : `/api/ridings/summary?year=${year}`;
+      ? `/api/provinces/summary?${yearsParam}`
+      : `/api/ridings/summary?${yearsParam}`;
 
     fetch(`${API}${endpoint}`)
       .then(r => r.json())
@@ -161,7 +177,7 @@ export function MapCNPage() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [year, mode]);
+  }, [selectedYears, mode]);
 
   // Close the year dropdown on outside click.
   useEffect(() => {
@@ -174,10 +190,56 @@ export function MapCNPage() {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  function selectYear(y: number) {
-    setYear(y);
-    setIsYearDropdownOpen(false);
+  function toggleYear(y: number) {
+    setSelectedYears(prev =>
+      prev.includes(y)
+        ? prev.length > 1 ? prev.filter(y2 => y2 !== y) : prev  // keep at least 1
+        : [...prev, y]
+    );
   }
+
+  type PartyBreakdown = { party: string; totalMonetary: number; donationCount: number };
+  type TrendPoint = { year: number; totalMonetary: number; byParty?: PartyBreakdown[] };
+  const [trendData, setTrendData] = useState<TrendPoint[] | null>(null);
+  const [trendLoading, setTrendLoading] = useState(false);
+
+  useEffect(() => {
+    if (!selected) { setTrendData(null); setTrendLoading(false); return; }
+    const controller = new AbortController();
+    setTrendLoading(true);
+    setTrendData(null);
+    const url = mode === "provinces"
+      ? `${API}/api/provinces/${selected.code}/summary`
+      : `${API}/api/ridings/${selected.code}/summary`;
+    fetch(url, { signal: controller.signal })
+      .then(r => r.json())
+      .then(json => {
+        const byYear = (json.byYear ?? []) as TrendPoint[];
+        setTrendData(byYear.sort((a, b) => a.year - b.year));
+      })
+      .catch(err => { if (err.name !== "AbortError") console.error(err); })
+      .finally(() => setTrendLoading(false));
+    return () => controller.abort();
+  }, [selected, mode]);
+
+  // For ridings: byParty comes from trendData (riding_year_total has no party column).
+  // For provinces: byParty comes from regionData (province bulk fetch still includes it).
+  const infoPanelByParty: PartyBreakdown[] | null = (() => {
+    if (!selected) return null;
+    if (mode === "provinces") return selectedData?.byParty ?? null;
+    if (!trendData) return null;
+    const relevant = trendData.filter(t => selectedYears.includes(t.year));
+    if (relevant.length === 0) return null;
+    const partyMap: Record<string, PartyBreakdown> = {};
+    for (const yearData of relevant) {
+      for (const p of yearData.byParty ?? []) {
+        if (!partyMap[p.party]) partyMap[p.party] = { party: p.party, totalMonetary: 0, donationCount: 0 };
+        partyMap[p.party].totalMonetary += p.totalMonetary / selectedYears.length;
+        partyMap[p.party].donationCount += p.donationCount / selectedYears.length;
+      }
+    }
+    return Object.values(partyMap);
+  })();
 
   return (
     <div className="map-page">
@@ -200,19 +262,29 @@ export function MapCNPage() {
               onClick={() => setIsYearDropdownOpen(o => !o)}
             >
               <CalendarRange size={15} />
-              <span>{year}</span>
+              <span>{yearLabel}</span>
               <ChevronDown size={14} />
             </button>
 
             {isYearDropdownOpen && (
               <div className="map-year-dropdown">
+                <div className="map-year-dropdown-actions">
+                  <button
+                    type="button"
+                    className="map-year-dropdown-reset"
+                    onClick={() => setSelectedYears([2022])}
+                  >
+                    Reset
+                  </button>
+                </div>
                 {YEARS.map(y => (
                   <button
                     key={y}
                     type="button"
-                    className={"map-year-option" + (year === y ? " map-year-option--active" : "")}
-                    onClick={() => selectYear(y)}
+                    className={"map-year-option" + (selectedYears.includes(y) ? " map-year-option--active" : "")}
+                    onClick={() => toggleYear(y)}
                   >
+                    <span className="map-year-check">{selectedYears.includes(y) ? "✓" : ""}</span>
                     {y}
                   </button>
                 ))}
@@ -249,7 +321,11 @@ export function MapCNPage() {
               </div>
 
               <div className="map-info-section">
-                <div className="map-info-section-title">Total Donations ({year})</div>
+                <div className="map-info-section-title">
+                  {isMultiYear
+                    ? `Average Donations (${sortedYears[0]}–${sortedYears[sortedYears.length - 1]})`
+                    : `Total Donations (${selectedYears[0]})`}
+                </div>
                 {loading ? (
                   <div className="map-skeleton-group">
                     <div className="map-skeleton map-skeleton--lg" />
@@ -268,7 +344,7 @@ export function MapCNPage() {
                 )}
               </div>
 
-              {loading ? (
+              {(loading || trendLoading) && !infoPanelByParty ? (
                 <div className="map-info-section">
                   <div className="map-info-section-title">By Party</div>
                   <div className="map-skeleton-group">
@@ -280,11 +356,11 @@ export function MapCNPage() {
                     ))}
                   </div>
                 </div>
-              ) : selectedData && (
+              ) : infoPanelByParty && infoPanelByParty.length > 0 && selectedData && (
                 <div className="map-info-section">
                   <div className="map-info-section-title">By Party</div>
                   <div className="map-party-list">
-                    {[...selectedData.byParty]
+                    {[...infoPanelByParty]
                       .sort((a, b) => b.totalMonetary - a.totalMonetary)
                       .map(({ party, totalMonetary }) => {
                         const pct = (totalMonetary / selectedData.totalMonetary) * 100;
@@ -307,7 +383,37 @@ export function MapCNPage() {
 
               <div className="map-info-section">
                 <div className="map-info-section-title">Year Trend</div>
-                <div className="map-info-placeholder">Coming soon</div>
+                {trendLoading ? (
+                  <div className="map-skeleton" style={{ height: 90, borderRadius: 8 }} />
+                ) : trendData && trendData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={100}>
+                    <AreaChart data={trendData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                      <XAxis
+                        dataKey="year"
+                        ticks={[2004, 2010, 2016, 2022]}
+                        tick={{ fontSize: 10, fill: "#aaa" }}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis hide />
+                      <Tooltip
+                        formatter={(v) => [formatMoney(v as number), "Donations"]}
+                        labelFormatter={(l) => String(l)}
+                        contentStyle={{ fontSize: 12, borderRadius: 6, border: "1px solid #eee" }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="totalMonetary"
+                        stroke="#238b45"
+                        fill="#e8f5ef"
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="map-info-placeholder">No data</div>
+                )}
               </div>
 
               {mode === "ridings" && (

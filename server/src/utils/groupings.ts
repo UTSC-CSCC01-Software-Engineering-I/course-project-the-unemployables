@@ -15,26 +15,37 @@ export type ProvinceSummary = {
 };
 
 export function groupByProvince(rows: ProvinceRow[]): ProvinceSummary[] {
-  const byProvince: Record<string, ProvinceSummary> = {};
+  const byProvince: Record<string, {
+    province: string;
+    totalMonetary: number;
+    donationCount: number;
+    donorCount: number;
+    byPartyMap: Record<string, { party: string; totalMonetary: number; donationCount: number }>;
+  }> = {};
+
   for (const row of rows) {
     if (!byProvince[row.province]) {
-      byProvince[row.province] = {
-        province: row.province,
-        totalMonetary: 0,
-        donationCount: 0,
-        donorCount: Number(row.donor_count),
-        byParty: [],
-      };
+      byProvince[row.province] = { province: row.province, totalMonetary: 0, donationCount: 0, donorCount: 0, byPartyMap: {} };
     }
-    byProvince[row.province].totalMonetary += Number(row.total_monetary);
-    byProvince[row.province].donationCount += Number(row.donation_count);
-    byProvince[row.province].byParty.push({
-      party: row.party,
-      totalMonetary: Number(row.total_monetary),
-      donationCount: Number(row.donation_count),
-    });
+    const entry = byProvince[row.province];
+    entry.totalMonetary += Number(row.total_monetary);
+    entry.donationCount += Number(row.donation_count);
+    entry.donorCount += Number(row.donor_count);
+
+    if (!entry.byPartyMap[row.party]) {
+      entry.byPartyMap[row.party] = { party: row.party, totalMonetary: 0, donationCount: 0 };
+    }
+    entry.byPartyMap[row.party].totalMonetary += Number(row.total_monetary);
+    entry.byPartyMap[row.party].donationCount += Number(row.donation_count);
   }
-  return Object.values(byProvince);
+
+  return Object.values(byProvince).map(e => ({
+    province: e.province,
+    totalMonetary: e.totalMonetary,
+    donationCount: e.donationCount,
+    donorCount: e.donorCount,
+    byParty: Object.values(e.byPartyMap),
+  }));
 }
 
 export type RidingRow = {
@@ -54,25 +65,36 @@ export type RidingSummary = {
 };
 
 export function groupByRiding(rows: RidingRow[]): RidingSummary[] {
-  const byRiding: Record<string, RidingSummary> = {};
+  const byRiding: Record<string, {
+    fedNum: number;
+    totalMonetary: number;
+    donationCount: number;
+    donorCount: number;
+    byPartyMap: Record<string, { party: string; totalMonetary: number; donationCount: number }>;
+  }> = {};
+
   for (const row of rows) {
     const key = String(row.fed_num);
     if (!byRiding[key]) {
-      byRiding[key] = {
-        fedNum: row.fed_num,
-        totalMonetary: 0,
-        donationCount: 0,
-        donorCount: Number(row.donor_count),
-        byParty: [],
-      };
+      byRiding[key] = { fedNum: Number(row.fed_num), totalMonetary: 0, donationCount: 0, donorCount: 0, byPartyMap: {} };
     }
-    byRiding[key].totalMonetary += Number(row.total_monetary);
-    byRiding[key].donationCount += Number(row.donation_count);
-    byRiding[key].byParty.push({
-      party: row.party,
-      totalMonetary: Number(row.total_monetary),
-      donationCount: Number(row.donation_count),
-    });
+    const entry = byRiding[key];
+    entry.totalMonetary += Number(row.total_monetary);
+    entry.donationCount += Number(row.donation_count);
+    entry.donorCount += Number(row.donor_count);
+
+    if (!entry.byPartyMap[row.party]) {
+      entry.byPartyMap[row.party] = { party: row.party, totalMonetary: 0, donationCount: 0 };
+    }
+    entry.byPartyMap[row.party].totalMonetary += Number(row.total_monetary);
+    entry.byPartyMap[row.party].donationCount += Number(row.donation_count);
   }
-  return Object.values(byRiding);
+
+  return Object.values(byRiding).map(e => ({
+    fedNum: e.fedNum,
+    totalMonetary: e.totalMonetary,
+    donationCount: e.donationCount,
+    donorCount: e.donorCount,
+    byParty: Object.values(e.byPartyMap),
+  }));
 }
