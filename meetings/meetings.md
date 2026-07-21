@@ -33,3 +33,19 @@ Akshyan & Tareq: Work on the researcher side of the app, such as authentication,
 ### Other notes
 Meeting time: Lasted for 50 minutes on Wednesday June 29.
 
+# Meeting 3
+
+Discussion about what to present for Demo 3 and how to split up the remaining features based on feedback from TA.
+
+## Tasks
+Ayyash: Add multi-year average mode and party filter to the choropleth map, fix province performance issues, add year chips and cumulative totals to the info panel.
+
+Tri: Add province filter and additional chart types (bar, pie) to the Donation Trends page, and add a monthly donations chart to the province info panel.
+
+Akshyan & Tareq: Lock the researcher dashboard behind authentication, add login redirect, and implement session persistence so users stay logged in on refresh.
+
+Faris: vs-average comparison, province filter, and compare mode to the Riding Lookup page.
+
+### Other notes
+Meeting time: Lasted for 45 minutes on Wednesday July 14.
+

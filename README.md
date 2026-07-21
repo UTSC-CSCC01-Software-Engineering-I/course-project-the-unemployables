@@ -56,6 +56,7 @@ An interactive web application for exploring Canadian federal political donation
 
 - [Demo 1 Documentation](docs/Demo1Docs.md) — Project proposal, class diagram, Demo 1 status
 - [Demo 2 Documentation](docs/Demo2Docs.md) — Updated class diagram, Demo 2 status
+- [Demo 3 Documentation](docs/Demo3Docs.md) — Updated class diagram, Demo 3 status
 - [Meeting Minutes](meetings/meetings.md)
 
 ---
@@ -119,5 +120,6 @@ cd client && npm test
 | Version | Notes |
 |---|---|
 | [v0.2.1](https://github.com/UTSC-CSCC01-Software-Engineering-I/course-project-the-unemployables/releases/tag/v0.2.1) | Demo 2 release — electoral district map, riding lookup, donation trends, automated tests |
+| v0.3.0 | Demo 3 release — multi-year average map, party filter, province performance (materialized views), riding rank + compare, donation trends filters & chart types, 50 automated tests |
 
 ---
