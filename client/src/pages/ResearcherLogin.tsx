@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Mail, LockKeyholeIcon, KeyIcon, Info, ArrowLeft } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Footer } from "@/components/layout/Footer";
 import { supabase } from "@/lib/supabase";
 import './ResearcherLogin.css'
@@ -12,6 +12,7 @@ export function ResearcherLoginUIpage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
 
   const handleSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -36,7 +37,10 @@ export function ResearcherLoginUIpage() {
       return;
     }
 
-    navigate("/");
+    // Send the user back to the page that bounced them here, or home if they
+    // came to the login page directly.
+    const redirect = searchParams.get("redirect");
+    navigate(redirect || "/");
   };
  
   return (
@@ -113,7 +117,7 @@ export function ResearcherLoginUIpage() {
           <hr className="login-divider" />
 
           {/* error message shown on failed login or empty fields */}
-          {isVisible && <p className="error">{errorMessage}</p>}
+          {isVisible && <p className="error" role="alert">{errorMessage}</p>}
 
           <div className="login-notice">
             <Info size={15} strokeWidth={1.8} className="login-notice-icon" />
@@ -125,12 +129,10 @@ export function ResearcherLoginUIpage() {
         </div>
  
         {/* link to the homepage if the user no longer wants to login */}
-        <a href="#" className="login-public-link">
-          <ArrowLeft size={13} strokeWidth={2} />
-          <Link to="/">
-                Not affiliated? Return to Public Map.
-            </Link>
-        </a>
+        <Link to="/" className="login-public-link">
+          <ArrowLeft size={13} strokeWidth={2} aria-hidden="true" />
+          Not affiliated? Return to Public Map.
+        </Link>
  
       </main>
 
