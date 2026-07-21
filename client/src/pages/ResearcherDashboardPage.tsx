@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, SlidersHorizontal, Eye, Download, Printer, ShieldCheck, AlertCircle, X } from "lucide-react";
+import { SlidersHorizontal, Eye, Download, Printer, ShieldCheck, AlertCircle, X } from "lucide-react";
 import { fetchDonations } from "../api/donations";
 import { supabase } from "../lib/supabase";
 import type { Donation, DonationFilters } from "../types/index";
