@@ -2,6 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -53,6 +58,7 @@ const PROVINCES: { code: string; name: string }[] = [
 ];
 
 type Granularity = "year" | "month";
+type ChartKind = "line" | "bar" | "pie";
 
 /** A pivoted chart row: the x-axis field (`year` or `month`) plus one key per party. */
 type ChartRow = Record<string, number>;
@@ -114,6 +120,7 @@ function ChartTooltip({ active, label, payload, formatLabel }: TooltipProps) {
 export function DonationTrendsPage() {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [granularity, setGranularity] = useState<Granularity>("year");
+  const [chartKind, setChartKind] = useState<ChartKind>("line");
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   // null = All provinces (uses the country-wide sum-by-month endpoint).
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
@@ -245,6 +252,21 @@ export function DonationTrendsPage() {
     return map;
   }, [parties]);
 
+  // Pie can't show a time series, so it collapses the visible periods into one
+  // total per (non-hidden) party — each slice is that party's overall share.
+  const pieData = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const row of chartData) {
+      for (const party of parties) {
+        if (hidden.has(party)) continue;
+        totals[party] = (totals[party] ?? 0) + (row[party] ?? 0);
+      }
+    }
+    return parties
+      .filter((p) => !hidden.has(p) && totals[p] > 0)
+      .map((party) => ({ party, value: totals[party] }));
+  }, [chartData, parties, hidden]);
+
   const toggle = (code: string) =>
     setHidden((prev) => {
       const next = new Set(prev);
@@ -321,6 +343,21 @@ export function DonationTrendsPage() {
               ))}
             </select>
           </label>
+
+          <div className="trends-toggle" role="tablist" aria-label="Chart type">
+            {(["line", "bar", "pie"] as ChartKind[]).map((kind) => (
+              <button
+                key={kind}
+                type="button"
+                role="tab"
+                aria-selected={chartKind === kind}
+                className={"trends-toggle-btn" + (chartKind === kind ? " active" : "")}
+                onClick={() => setChartKind(kind)}
+              >
+                {kind === "line" ? "Line" : kind === "bar" ? "Bar" : "Pie"}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="trends-legend">
@@ -350,49 +387,110 @@ export function DonationTrendsPage() {
             <div className="trends-state trends-state-error">{error}</div>
           ) : chartData.length === 0 ? (
             <div className="trends-state">No donation data available.</div>
+          ) : chartKind === "pie" ? (
+            <ResponsiveContainer width="100%" height={440}>
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  dataKey="value"
+                  nameKey="party"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={150}
+                  isAnimationActive={false}
+                  label={(props) => String((props as { name?: string }).name ?? "")}
+                >
+                  {pieData.map((d) => (
+                    <Cell key={d.party} fill={partyColor[d.party]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => formatMoney(Number(value))} />
+              </PieChart>
+            </ResponsiveContainer>
           ) : (
             <ResponsiveContainer width="100%" height={440}>
-              <LineChart
-                data={chartData}
-                margin={{ top: 16, right: 24, bottom: 8, left: 8 }}
-              >
-                <CartesianGrid stroke="#eceef1" vertical={false} />
-                <XAxis
-                  dataKey={xField}
-                  tickFormatter={isMonth ? (m: number) => MONTH_NAMES[m - 1] ?? String(m) : undefined}
-                  tick={{ fontSize: 12, fill: "#7a828c" }}
-                  tickLine={false}
-                  axisLine={{ stroke: "#e2e5e9" }}
-                />
-                <YAxis
-                  tickFormatter={formatMoney}
-                  tick={{ fontSize: 12, fill: "#7a828c" }}
-                  tickLine={false}
-                  axisLine={{ stroke: "#e2e5e9" }}
-                  width={64}
-                />
-                <Tooltip
-                  content={
-                    <ChartTooltip
-                      formatLabel={isMonth ? (m) => MONTH_NAMES[m - 1] ?? String(m) : undefined}
-                    />
-                  }
-                />
-                {parties
-                  .filter((party) => !hidden.has(party))
-                  .map((party) => (
-                    <Line
-                      key={party}
-                      type="monotone"
-                      dataKey={party}
-                      stroke={partyColor[party]}
-                      strokeWidth={2.5}
-                      dot={false}
-                      activeDot={{ r: 4, strokeWidth: 2, fill: "#fff", stroke: partyColor[party] }}
-                      isAnimationActive={false}
-                    />
-                  ))}
-              </LineChart>
+              {chartKind === "bar" ? (
+                <BarChart
+                  data={chartData}
+                  margin={{ top: 16, right: 24, bottom: 8, left: 8 }}
+                >
+                  <CartesianGrid stroke="#eceef1" vertical={false} />
+                  <XAxis
+                    dataKey={xField}
+                    tickFormatter={isMonth ? (m: number) => MONTH_NAMES[m - 1] ?? String(m) : undefined}
+                    tick={{ fontSize: 12, fill: "#7a828c" }}
+                    tickLine={false}
+                    axisLine={{ stroke: "#e2e5e9" }}
+                  />
+                  <YAxis
+                    tickFormatter={formatMoney}
+                    tick={{ fontSize: 12, fill: "#7a828c" }}
+                    tickLine={false}
+                    axisLine={{ stroke: "#e2e5e9" }}
+                    width={64}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "rgba(120, 130, 140, 0.06)" }}
+                    content={
+                      <ChartTooltip
+                        formatLabel={isMonth ? (m) => MONTH_NAMES[m - 1] ?? String(m) : undefined}
+                      />
+                    }
+                  />
+                  {parties
+                    .filter((party) => !hidden.has(party))
+                    .map((party) => (
+                      <Bar
+                        key={party}
+                        dataKey={party}
+                        fill={partyColor[party]}
+                        isAnimationActive={false}
+                      />
+                    ))}
+                </BarChart>
+              ) : (
+                <LineChart
+                  data={chartData}
+                  margin={{ top: 16, right: 24, bottom: 8, left: 8 }}
+                >
+                  <CartesianGrid stroke="#eceef1" vertical={false} />
+                  <XAxis
+                    dataKey={xField}
+                    tickFormatter={isMonth ? (m: number) => MONTH_NAMES[m - 1] ?? String(m) : undefined}
+                    tick={{ fontSize: 12, fill: "#7a828c" }}
+                    tickLine={false}
+                    axisLine={{ stroke: "#e2e5e9" }}
+                  />
+                  <YAxis
+                    tickFormatter={formatMoney}
+                    tick={{ fontSize: 12, fill: "#7a828c" }}
+                    tickLine={false}
+                    axisLine={{ stroke: "#e2e5e9" }}
+                    width={64}
+                  />
+                  <Tooltip
+                    content={
+                      <ChartTooltip
+                        formatLabel={isMonth ? (m) => MONTH_NAMES[m - 1] ?? String(m) : undefined}
+                      />
+                    }
+                  />
+                  {parties
+                    .filter((party) => !hidden.has(party))
+                    .map((party) => (
+                      <Line
+                        key={party}
+                        type="monotone"
+                        dataKey={party}
+                        stroke={partyColor[party]}
+                        strokeWidth={2.5}
+                        dot={false}
+                        activeDot={{ r: 4, strokeWidth: 2, fill: "#fff", stroke: partyColor[party] }}
+                        isAnimationActive={false}
+                      />
+                    ))}
+                </LineChart>
+              )}
             </ResponsiveContainer>
           )}
         </div>

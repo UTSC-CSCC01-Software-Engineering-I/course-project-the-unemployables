@@ -35,7 +35,16 @@ vi.mock("recharts", () => ({
   LineChart: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="line-chart">{children}</div>
   ),
+  BarChart: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="bar-chart">{children}</div>
+  ),
+  PieChart: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="pie-chart">{children}</div>
+  ),
   Line: () => null,
+  Bar: () => null,
+  Pie: () => null,
+  Cell: () => null,
   XAxis: () => null,
   YAxis: () => null,
   CartesianGrid: () => null,
@@ -249,5 +258,48 @@ describe("DonationTrendsPage — province filter in year view", () => {
     expect(
       await screen.findByText(/Total contributions by party, .* · Ontario/)
     ).toBeInTheDocument();
+  });
+});
+
+describe("DonationTrendsPage — chart type", () => {
+  it("renders a line chart by default", async () => {
+    render(<DonationTrendsPage />);
+    expect(await screen.findByTestId("line-chart")).toBeInTheDocument();
+    expect(screen.queryByTestId("bar-chart")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("pie-chart")).not.toBeInTheDocument();
+  });
+
+  it("switches to a bar chart when Bar is selected", async () => {
+    const user = userEvent.setup();
+    render(<DonationTrendsPage />);
+    await screen.findByTestId("line-chart");
+
+    await user.click(screen.getByRole("tab", { name: "Bar" }));
+
+    expect(await screen.findByTestId("bar-chart")).toBeInTheDocument();
+    expect(screen.queryByTestId("line-chart")).not.toBeInTheDocument();
+  });
+
+  it("switches to a pie chart when Pie is selected", async () => {
+    const user = userEvent.setup();
+    render(<DonationTrendsPage />);
+    await screen.findByTestId("line-chart");
+
+    await user.click(screen.getByRole("tab", { name: "Pie" }));
+
+    expect(await screen.findByTestId("pie-chart")).toBeInTheDocument();
+    expect(screen.queryByTestId("line-chart")).not.toBeInTheDocument();
+  });
+
+  it("keeps the chart type when toggling granularity", async () => {
+    const user = userEvent.setup();
+    render(<DonationTrendsPage />);
+    await screen.findByTestId("line-chart");
+
+    await user.click(screen.getByRole("tab", { name: "Bar" }));
+    await screen.findByTestId("bar-chart");
+    await user.click(screen.getByRole("tab", { name: "By Month" }));
+
+    expect(await screen.findByTestId("bar-chart")).toBeInTheDocument();
   });
 });
