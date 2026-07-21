@@ -33,7 +33,8 @@ export function buildQuery(filters: DonationFilters & { page?: number; limit?: n
 // to the server API for specific researcher access. If the user is not signed in, it will 
 // just make a regular fetch request without the auth header.
 async function withAuth(url: string): Promise<Response> {
-  const { data } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+  const { data, error } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+  console.log("session on request:", url, { hasToken: !!data.session?.access_token, error });
   const token = data.session?.access_token;
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
