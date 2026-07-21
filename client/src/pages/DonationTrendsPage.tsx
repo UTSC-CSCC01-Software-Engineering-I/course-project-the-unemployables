@@ -11,6 +11,8 @@ import {
 import {
   fetchDonationSumByYearParty,
   fetchDonationSumByMonth,
+  fetchDonationSumByProvinceMonth,
+  fetchDonationSumByProvinceYear,
 } from "../api/trends";
 import "./DonationTrendsPage.css";
 
@@ -30,6 +32,24 @@ const FALLBACK_COLORS = ["#8e6c8a", "#3a8fb7", "#c9436f", "#6b8f3a", "#b0983d", 
 const MONTH_NAMES = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+/** Provinces/territories for the monthly filter. `code` is the value the
+ *  sum-by-province-month endpoint expects (matches `contributor_province`). */
+const PROVINCES: { code: string; name: string }[] = [
+  { code: "AB", name: "Alberta" },
+  { code: "BC", name: "British Columbia" },
+  { code: "MB", name: "Manitoba" },
+  { code: "NB", name: "New Brunswick" },
+  { code: "NL", name: "Newfoundland and Labrador" },
+  { code: "NS", name: "Nova Scotia" },
+  { code: "NT", name: "Northwest Territories" },
+  { code: "NU", name: "Nunavut" },
+  { code: "ON", name: "Ontario" },
+  { code: "PE", name: "Prince Edward Island" },
+  { code: "QC", name: "Quebec" },
+  { code: "SK", name: "Saskatchewan" },
+  { code: "YT", name: "Yukon" },
 ];
 
 type Granularity = "year" | "month";
@@ -95,8 +115,13 @@ export function DonationTrendsPage() {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [granularity, setGranularity] = useState<Granularity>("year");
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  // null = All provinces (uses the country-wide sum-by-month endpoint).
+  const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
 
   const [yearRows, setYearRows] = useState<ChartRow[]>([]);
+  // Province-scoped yearly rows (only fetched when a province is picked in year
+  // view); when no province is selected the all-province `yearRows` are shown.
+  const [provinceYearRows, setProvinceYearRows] = useState<ChartRow[]>([]);
   const [monthRows, setMonthRows] = useState<ChartRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -127,12 +152,16 @@ export function DonationTrendsPage() {
     };
   }, []);
 
-  // Fetch monthly totals when viewing a specific year by month.
+  // Fetch monthly totals when viewing a specific year by month. Uses the
+  // province-scoped endpoint when a province is picked, else the country-wide one.
   useEffect(() => {
     if (granularity !== "month" || selectedYear === null) return;
     let cancelled = false;
     setLoading(true);
-    fetchDonationSumByMonth(selectedYear)
+    const request = selectedProvince
+      ? fetchDonationSumByProvinceMonth(selectedProvince, selectedYear)
+      : fetchDonationSumByMonth(selectedYear);
+    request
       .then((res) => {
         if (cancelled) return;
         setMonthRows(
@@ -152,11 +181,46 @@ export function DonationTrendsPage() {
     return () => {
       cancelled = true;
     };
-  }, [granularity, selectedYear]);
+  }, [granularity, selectedYear, selectedProvince]);
+
+  // Fetch province-scoped yearly totals when a province is picked in year view.
+  // With no province selected we fall back to the all-province `yearRows`.
+  useEffect(() => {
+    if (granularity !== "year" || !selectedProvince) {
+      setProvinceYearRows([]);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    fetchDonationSumByProvinceYear(selectedProvince)
+      .then((res) => {
+        if (cancelled) return;
+        setProvinceYearRows(
+          pivot(
+            res.data.map((r) => ({ x: r.year, party: r.party, total: r.total })),
+            "year"
+          )
+        );
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load data");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [granularity, selectedProvince]);
 
   const isMonth = granularity === "month";
   const xField = isMonth ? "month" : "year";
-  const chartData = isMonth ? monthRows : yearRows;
+  // Year view uses province-scoped rows when a province is selected, else the
+  // country-wide rows. The month/year dropdown options stay tied to `yearRows`
+  // (the full range) so switching province never strands the picker.
+  const yearChartData = selectedProvince ? provinceYearRows : yearRows;
+  const chartData = isMonth ? monthRows : yearChartData;
 
   const availableYears = useMemo(
     () => yearRows.map((r) => r.year),
@@ -188,10 +252,13 @@ export function DonationTrendsPage() {
       return next;
     });
 
+  const provinceName = selectedProvince
+    ? PROVINCES.find((p) => p.code === selectedProvince)?.name ?? selectedProvince
+    : "All provinces";
   const subtitle = isMonth
-    ? `Monthly contributions by party — ${selectedYear ?? ""}`
+    ? `Monthly contributions by party — ${selectedYear ?? ""} · ${provinceName}`
     : availableYears.length > 0
-    ? `Total contributions by party, ${availableYears[0]}–${availableYears[availableYears.length - 1]}`
+    ? `Total contributions by party, ${availableYears[0]}–${availableYears[availableYears.length - 1]} · ${provinceName}`
     : "Total contributions by party";
 
   return (
@@ -239,6 +306,21 @@ export function DonationTrendsPage() {
               </select>
             </label>
           )}
+
+          <label className="trends-year-select">
+            <span>Province</span>
+            <select
+              value={selectedProvince ?? ""}
+              onChange={(e) => setSelectedProvince(e.target.value || null)}
+            >
+              <option value="">All provinces</option>
+              {PROVINCES.map((p) => (
+                <option key={p.code} value={p.code}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
 
         <div className="trends-legend">

@@ -120,4 +120,56 @@ router.get("/sum-by-province-month", async (req: Request, res: Response) => {
   res.json({ data: result });
 });
 
+// GET /api/donations/sum-by-province-year?province=ON
+// Returns the total contribution amount grouped by year and party for one
+// province. There's no dedicated province-year view — instead we roll up the
+// `donation_province_year_month_party_totals` view over its month dimension
+// (it's tiny, a few thousand rows total). Like the country-wide year view we
+// zero-fill every year × active-party cell so the chart lines stay continuous.
+router.get("/sum-by-province-year", async (req: Request, res: Response) => {
+  const province = req.query["province"];
+  if (typeof province !== "string" || province.length === 0) {
+    res.status(400).json({ error: "Query param 'province' is required." });
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("donation_province_year_month_party_totals")
+    .select("year, party, total")
+    .eq("province", province);
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  const rows = (data ?? []) as { year: number; party: string; total: number | string }[];
+
+  // Roll up months into year totals per (year, party).
+  const totalByCell = new Map<string, number>();
+  const years = new Set<number>();
+  const parties = new Set<string>();
+  for (const r of rows) {
+    years.add(r.year);
+    parties.add(r.party);
+    const key = `${r.year}|${r.party}`;
+    totalByCell.set(key, (totalByCell.get(key) ?? 0) + Number(r.total));
+  }
+
+  // Zero-fill the full year-range × active-party grid so lines have no gaps.
+  const sortedParties = [...parties].sort();
+  const result: DonationYearPartySum[] = [];
+  if (years.size > 0) {
+    const minYear = Math.min(...years);
+    const maxYear = Math.max(...years);
+    for (let year = minYear; year <= maxYear; year++) {
+      for (const party of sortedParties) {
+        result.push({ year, party, total: totalByCell.get(`${year}|${party}`) ?? 0 });
+      }
+    }
+  }
+
+  res.json({ data: result });
+});
+
 export default router;
