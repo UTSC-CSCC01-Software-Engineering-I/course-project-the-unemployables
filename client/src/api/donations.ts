@@ -23,6 +23,7 @@ export function buildQuery(filters: DonationFilters & { page?: number; limit?: n
   if (filters.politicalParty) params.set("politicalParty", filters.politicalParty);
   if (filters.page !== undefined) params.set("page", String(filters.page));
   if (filters.limit !== undefined) params.set("limit", String(filters.limit));
+  if (filters.donorName) params.set("donorName", filters.donorName);
   const qs = params.toString();
   return qs ? `?${qs}` : "";
 }
