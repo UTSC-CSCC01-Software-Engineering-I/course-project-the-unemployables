@@ -44,6 +44,18 @@ describe("buildQuery", () => {
     expect(buildQuery({})).toBe("");
   });
 
+  it("builds the query string for a donor-name search bar input", () => {
+    const filters: DonationFilters = {
+      donorName: "Jane Doe",
+      page: 1,
+      limit: 25,
+    };
+
+    const values = Object.fromEntries(new URLSearchParams(buildQuery(filters).slice(1)).entries());
+
+    expect(values).toEqual({ donorName: "Jane Doe", page: "1", limit: "25" });
+  });
+
   it("omits undefined values from the query string", () => {
     const filters: DonationFilters = {
       firstName: "Ada",
