@@ -126,6 +126,29 @@ export function readFiltersFromQuery(query: Request["query"]) {
     amountMax: parseNumber(query.amountMax),
   };
 }
+
+function applyFilters(query: any, filters: ReturnType<typeof readFiltersFromQuery>) {
+  if (filters.donorName) {
+    const term = `%${filters.donorName}%`;
+    query = query.or(`contributor_first_name.ilike.${term},contributor_last_name.ilike.${term}`);
+  }
+  if (filters.firstName) {
+    query = query.ilike("contributor_first_name", `%${filters.firstName}%`);
+  }
+  if (filters.lastName) {
+    query = query.ilike("contributor_last_name", `%${filters.lastName}%`);
+  }
+  if (filters.politicalParty) query = query.eq("political_party", filters.politicalParty);
+  if (filters.province) query = query.eq("contributor_province", filters.province);
+  if (filters.postalCode) query = query.eq("contributor_postal_code", filters.postalCode);
+  if (filters.year !== undefined) query = query.eq("contribution_year", filters.year);
+  if (filters.amountMin !== undefined) query = query.gte("contribution_amount", filters.amountMin);
+  if (filters.amountMax !== undefined) query = query.lte("contribution_amount", filters.amountMax);
+  if (filters.dateFrom) query = query.gte("contribution_date", filters.dateFrom);
+  if (filters.dateTo) query = query.lte("contribution_date", filters.dateTo);
+  return query;
+}
+
 // Convert a DonationRow from Supabase into a Donation object for the API response.
 function toDonationRow(row: DonationRow) {
   return {
@@ -159,14 +182,7 @@ router.get("/summary", async (req: Request, res: Response) => {
       .from("donations")
       .select("political_party, contributor_province, contribution_year", { count: "exact", head: false });
 
-    if (filters.politicalParty) query = query.eq("political_party", filters.politicalParty);
-    if (filters.province) query = query.eq("contributor_province", filters.province);
-    if (filters.postalCode) query = query.eq("contributor_postal_code", filters.postalCode);
-    if (filters.year !== undefined) query = query.eq("contribution_year", filters.year);
-    if (filters.amountMin !== undefined) query = query.gte("contribution_amount", filters.amountMin);
-    if (filters.amountMax !== undefined) query = query.lte("contribution_amount", filters.amountMax);
-    if (filters.dateFrom) query = query.gte("contribution_date", filters.dateFrom);
-    if (filters.dateTo) query = query.lte("contribution_date", filters.dateTo);
+    query = applyFilters(query, filters);
 
     const { data, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
@@ -189,11 +205,6 @@ router.get("/", async (req: Request, res: Response) => {
     const errors = validateFilters(req.query);
     if (errors.length) return sendValidationError(res, errors);
 
-    const page = Math.max(1, Number(req.query.page ?? 1));
-    const limit = Math.min(Math.max(1, Number(req.query.limit ?? 25)), 500);
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
-
     const filters = readFiltersFromQuery(req.query);
     const serviceSupabase = getSupabase();
     let query = serviceSupabase
@@ -203,33 +214,16 @@ router.get("/", async (req: Request, res: Response) => {
         { count: "exact" }
       );
 
-    if (filters.donorName) {
-      const term = `%${filters.donorName}%`;
-      query = query.or(`contributor_first_name.ilike.${term},contributor_last_name.ilike.${term}`);
-    }
-    if (filters.firstName) {
-      query = query.ilike("contributor_first_name", `%${filters.firstName}%`);
-    }
-    if (filters.lastName) {
-      query = query.ilike("contributor_last_name", `%${filters.lastName}%`);
-    }
-    if (filters.politicalParty) query = query.eq("political_party", filters.politicalParty);
-    if (filters.province) query = query.eq("contributor_province", filters.province);
-    if (filters.postalCode) query = query.eq("contributor_postal_code", filters.postalCode);
-    if (filters.year !== undefined) query = query.eq("contribution_year", filters.year);
-    if (filters.amountMin !== undefined) query = query.gte("contribution_amount", filters.amountMin);
-    if (filters.amountMax !== undefined) query = query.lte("contribution_amount", filters.amountMax);
-    if (filters.dateFrom) query = query.gte("contribution_date", filters.dateFrom);
-    if (filters.dateTo) query = query.lte("contribution_date", filters.dateTo);
+    query = applyFilters(query, filters);
 
-    query = query.order("contribution_date", { ascending: false }).range(from, to);
+    query = query.order("contribution_date", { ascending: false });
 
     const { data, count, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
 
     await logAccess(researcherId, filters.donorName ? "donor_search" : "search", filters, data?.length ?? 0);
 
-    res.json({ data: (data ?? []).map(toDonationRow), page, limit, total: count ?? 0, filters });
+    res.json({ data: (data ?? []).map(toDonationRow), total: count ?? 0, filters });
   } catch (err) {
     console.error("GET /donations failed:", err);
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown server error" });

@@ -46,6 +46,7 @@ export interface DonationFilters {
   politicalParty?: string;
   page?: number;
   limit?: number;
+  donorName?: string;
 }
 
 export interface PaginatedResponse<T> {

@@ -23,6 +23,7 @@ export function buildQuery(filters: DonationFilters & { page?: number; limit?: n
   if (filters.politicalParty) params.set("politicalParty", filters.politicalParty);
   if (filters.page !== undefined) params.set("page", String(filters.page));
   if (filters.limit !== undefined) params.set("limit", String(filters.limit));
+  if (filters.donorName) params.set("donorName", filters.donorName);
   const qs = params.toString();
   return qs ? `?${qs}` : "";
 }
@@ -32,7 +33,8 @@ export function buildQuery(filters: DonationFilters & { page?: number; limit?: n
 // to the server API for specific researcher access. If the user is not signed in, it will 
 // just make a regular fetch request without the auth header.
 async function withAuth(url: string): Promise<Response> {
-  const { data } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+  const { data, error } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+  console.log("session on request:", url, { hasToken: !!data.session?.access_token, error });
   const token = data.session?.access_token;
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
