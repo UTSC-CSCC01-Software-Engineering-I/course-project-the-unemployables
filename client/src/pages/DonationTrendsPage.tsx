@@ -23,7 +23,7 @@ const PARTY_COLORS: Record<string, string> = {
   NDP: "#f37021",
   GPC: "#3d9b35",
   BQ: "#33b2cc",
-  PPC: "#442d7b",
+  PPC: "#4b306a",
 };
 const FALLBACK_COLORS = ["#8e6c8a", "#3a8fb7", "#c9436f", "#6b8f3a", "#b0983d", "#5a6acf"];
 
