@@ -7,6 +7,8 @@ import { DonationTrendsPage } from "./pages/DonationTrendsPage";
 import { RidingLookupPage } from "./pages/RidingLookupPage";
 import { ResearcherLoginUIpage } from "./pages/ResearcherLogin";
 import { ResearcherDashboardPage } from "./pages/ResearcherDashboardPage";
+import { AuthProvider } from "./context/AuthContext";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import "./App.css";
 
 function AppLayout() {
@@ -28,7 +30,14 @@ function AppLayout() {
               <Route path="/riding-lookup" element={<RidingLookupPage />} />
               <Route path="/donation-trends" element={<DonationTrendsPage />} />
               <Route path="/login" element={<ResearcherLoginUIpage />} />
-              <Route path="/advanced-filters" element={<ResearcherDashboardPage />} />
+              <Route
+                path="/advanced-filters"
+                element={
+                  <ProtectedRoute>
+                    <ResearcherDashboardPage />
+                  </ProtectedRoute>
+                }
+              />
             </Routes>
           </main>
         </div>
@@ -39,7 +48,9 @@ function AppLayout() {
 export function App() {
   return (
     <BrowserRouter>
-      <AppLayout />
+      <AuthProvider>
+        <AppLayout />
+      </AuthProvider>
     </BrowserRouter>
   );
 }

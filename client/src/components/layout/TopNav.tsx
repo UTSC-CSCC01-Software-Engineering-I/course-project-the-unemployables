@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
 import { LogOut } from "lucide-react";
 import { NavLink, Link, useNavigate } from "react-router-dom";
-import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
 import "./TopNav.css";
 
 const LINKS = [
@@ -17,24 +16,11 @@ function getDisplayName(user: { user_metadata?: { full_name?: string; name?: str
 }
 
 
-// Created a function that determines the user session and gets display name.
-// If they are not, it will just display the Reseacher Login button.
+// Reads the shared session to show the researcher's name and a Sign Out
+// button, or the Researcher Login link when nobody's signed in.
 export function TopNav() {
   const navigate = useNavigate();
-
-  const [session, setSession] = useState<Session | null>(null);
-
-  useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
+  const { session } = useAuth();
 
   const isSignedIn = !!session;
   const displayName = getDisplayName(session?.user);
@@ -68,7 +54,7 @@ export function TopNav() {
         {isSignedIn && displayName ? <span className="top-nav-user">{displayName}</span> : null}
         {isSignedIn ? (
           <button type="button" className="top-nav-login top-nav-signout" onClick={handleSignOut}>
-            < LogOut/> Sign Out
+            <LogOut aria-hidden="true" /> Sign Out
           </button>
         ) : (
           <Link to="/login" className="top-nav-login">
