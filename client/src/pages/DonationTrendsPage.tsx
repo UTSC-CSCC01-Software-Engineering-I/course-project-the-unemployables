@@ -2,6 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -11,6 +16,8 @@ import {
 import {
   fetchDonationSumByYearParty,
   fetchDonationSumByMonth,
+  fetchDonationSumByProvinceMonth,
+  fetchDonationSumByProvinceYear,
 } from "../api/trends";
 import "./DonationTrendsPage.css";
 
@@ -23,7 +30,7 @@ const PARTY_COLORS: Record<string, string> = {
   NDP: "#f37021",
   GPC: "#3d9b35",
   BQ: "#33b2cc",
-  PPC: "#442d7b",
+  PPC: "#4b306a",
 };
 const FALLBACK_COLORS = ["#8e6c8a", "#3a8fb7", "#c9436f", "#6b8f3a", "#b0983d", "#5a6acf"];
 
@@ -32,7 +39,26 @@ const MONTH_NAMES = [
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
+/** Provinces/territories for the monthly filter. `code` is the value the
+ *  sum-by-province-month endpoint expects (matches `contributor_province`). */
+const PROVINCES: { code: string; name: string }[] = [
+  { code: "AB", name: "Alberta" },
+  { code: "BC", name: "British Columbia" },
+  { code: "MB", name: "Manitoba" },
+  { code: "NB", name: "New Brunswick" },
+  { code: "NL", name: "Newfoundland and Labrador" },
+  { code: "NS", name: "Nova Scotia" },
+  { code: "NT", name: "Northwest Territories" },
+  { code: "NU", name: "Nunavut" },
+  { code: "ON", name: "Ontario" },
+  { code: "PE", name: "Prince Edward Island" },
+  { code: "QC", name: "Quebec" },
+  { code: "SK", name: "Saskatchewan" },
+  { code: "YT", name: "Yukon" },
+];
+
 type Granularity = "year" | "month";
+type ChartKind = "line" | "bar" | "pie";
 
 /** A pivoted chart row: the x-axis field (`year` or `month`) plus one key per party. */
 type ChartRow = Record<string, number>;
@@ -94,9 +120,15 @@ function ChartTooltip({ active, label, payload, formatLabel }: TooltipProps) {
 export function DonationTrendsPage() {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [granularity, setGranularity] = useState<Granularity>("year");
+  const [chartKind, setChartKind] = useState<ChartKind>("line");
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  // null = All provinces (uses the country-wide sum-by-month endpoint).
+  const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
 
   const [yearRows, setYearRows] = useState<ChartRow[]>([]);
+  // Province-scoped yearly rows (only fetched when a province is picked in year
+  // view); when no province is selected the all-province `yearRows` are shown.
+  const [provinceYearRows, setProvinceYearRows] = useState<ChartRow[]>([]);
   const [monthRows, setMonthRows] = useState<ChartRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -127,12 +159,16 @@ export function DonationTrendsPage() {
     };
   }, []);
 
-  // Fetch monthly totals when viewing a specific year by month.
+  // Fetch monthly totals when viewing a specific year by month. Uses the
+  // province-scoped endpoint when a province is picked, else the country-wide one.
   useEffect(() => {
     if (granularity !== "month" || selectedYear === null) return;
     let cancelled = false;
     setLoading(true);
-    fetchDonationSumByMonth(selectedYear)
+    const request = selectedProvince
+      ? fetchDonationSumByProvinceMonth(selectedProvince, selectedYear)
+      : fetchDonationSumByMonth(selectedYear);
+    request
       .then((res) => {
         if (cancelled) return;
         setMonthRows(
@@ -152,11 +188,46 @@ export function DonationTrendsPage() {
     return () => {
       cancelled = true;
     };
-  }, [granularity, selectedYear]);
+  }, [granularity, selectedYear, selectedProvince]);
+
+  // Fetch province-scoped yearly totals when a province is picked in year view.
+  // With no province selected we fall back to the all-province `yearRows`.
+  useEffect(() => {
+    if (granularity !== "year" || !selectedProvince) {
+      setProvinceYearRows([]);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    fetchDonationSumByProvinceYear(selectedProvince)
+      .then((res) => {
+        if (cancelled) return;
+        setProvinceYearRows(
+          pivot(
+            res.data.map((r) => ({ x: r.year, party: r.party, total: r.total })),
+            "year"
+          )
+        );
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load data");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [granularity, selectedProvince]);
 
   const isMonth = granularity === "month";
   const xField = isMonth ? "month" : "year";
-  const chartData = isMonth ? monthRows : yearRows;
+  // Year view uses province-scoped rows when a province is selected, else the
+  // country-wide rows. The month/year dropdown options stay tied to `yearRows`
+  // (the full range) so switching province never strands the picker.
+  const yearChartData = selectedProvince ? provinceYearRows : yearRows;
+  const chartData = isMonth ? monthRows : yearChartData;
 
   const availableYears = useMemo(
     () => yearRows.map((r) => r.year),
@@ -181,6 +252,21 @@ export function DonationTrendsPage() {
     return map;
   }, [parties]);
 
+  // Pie can't show a time series, so it collapses the visible periods into one
+  // total per (non-hidden) party — each slice is that party's overall share.
+  const pieData = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const row of chartData) {
+      for (const party of parties) {
+        if (hidden.has(party)) continue;
+        totals[party] = (totals[party] ?? 0) + (row[party] ?? 0);
+      }
+    }
+    return parties
+      .filter((p) => !hidden.has(p) && totals[p] > 0)
+      .map((party) => ({ party, value: totals[party] }));
+  }, [chartData, parties, hidden]);
+
   const toggle = (code: string) =>
     setHidden((prev) => {
       const next = new Set(prev);
@@ -188,10 +274,13 @@ export function DonationTrendsPage() {
       return next;
     });
 
+  const provinceName = selectedProvince
+    ? PROVINCES.find((p) => p.code === selectedProvince)?.name ?? selectedProvince
+    : "All provinces";
   const subtitle = isMonth
-    ? `Monthly contributions by party — ${selectedYear ?? ""}`
+    ? `Monthly contributions by party — ${selectedYear ?? ""} · ${provinceName}`
     : availableYears.length > 0
-    ? `Total contributions by party, ${availableYears[0]}–${availableYears[availableYears.length - 1]}`
+    ? `Total contributions by party, ${availableYears[0]}–${availableYears[availableYears.length - 1]} · ${provinceName}`
     : "Total contributions by party";
 
   return (
@@ -239,6 +328,36 @@ export function DonationTrendsPage() {
               </select>
             </label>
           )}
+
+          <label className="trends-year-select">
+            <span>Province</span>
+            <select
+              value={selectedProvince ?? ""}
+              onChange={(e) => setSelectedProvince(e.target.value || null)}
+            >
+              <option value="">All provinces</option>
+              {PROVINCES.map((p) => (
+                <option key={p.code} value={p.code}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="trends-toggle" role="tablist" aria-label="Chart type">
+            {(["line", "bar", "pie"] as ChartKind[]).map((kind) => (
+              <button
+                key={kind}
+                type="button"
+                role="tab"
+                aria-selected={chartKind === kind}
+                className={"trends-toggle-btn" + (chartKind === kind ? " active" : "")}
+                onClick={() => setChartKind(kind)}
+              >
+                {kind === "line" ? "Line" : kind === "bar" ? "Bar" : "Pie"}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="trends-legend">
@@ -268,49 +387,110 @@ export function DonationTrendsPage() {
             <div className="trends-state trends-state-error">{error}</div>
           ) : chartData.length === 0 ? (
             <div className="trends-state">No donation data available.</div>
+          ) : chartKind === "pie" ? (
+            <ResponsiveContainer width="100%" height={440}>
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  dataKey="value"
+                  nameKey="party"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={150}
+                  isAnimationActive={false}
+                  label={(props) => String((props as { name?: string }).name ?? "")}
+                >
+                  {pieData.map((d) => (
+                    <Cell key={d.party} fill={partyColor[d.party]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => formatMoney(Number(value))} />
+              </PieChart>
+            </ResponsiveContainer>
           ) : (
             <ResponsiveContainer width="100%" height={440}>
-              <LineChart
-                data={chartData}
-                margin={{ top: 16, right: 24, bottom: 8, left: 8 }}
-              >
-                <CartesianGrid stroke="#eceef1" vertical={false} />
-                <XAxis
-                  dataKey={xField}
-                  tickFormatter={isMonth ? (m: number) => MONTH_NAMES[m - 1] ?? String(m) : undefined}
-                  tick={{ fontSize: 12, fill: "#7a828c" }}
-                  tickLine={false}
-                  axisLine={{ stroke: "#e2e5e9" }}
-                />
-                <YAxis
-                  tickFormatter={formatMoney}
-                  tick={{ fontSize: 12, fill: "#7a828c" }}
-                  tickLine={false}
-                  axisLine={{ stroke: "#e2e5e9" }}
-                  width={64}
-                />
-                <Tooltip
-                  content={
-                    <ChartTooltip
-                      formatLabel={isMonth ? (m) => MONTH_NAMES[m - 1] ?? String(m) : undefined}
-                    />
-                  }
-                />
-                {parties
-                  .filter((party) => !hidden.has(party))
-                  .map((party) => (
-                    <Line
-                      key={party}
-                      type="monotone"
-                      dataKey={party}
-                      stroke={partyColor[party]}
-                      strokeWidth={2.5}
-                      dot={false}
-                      activeDot={{ r: 4, strokeWidth: 2, fill: "#fff", stroke: partyColor[party] }}
-                      isAnimationActive={false}
-                    />
-                  ))}
-              </LineChart>
+              {chartKind === "bar" ? (
+                <BarChart
+                  data={chartData}
+                  margin={{ top: 16, right: 24, bottom: 8, left: 8 }}
+                >
+                  <CartesianGrid stroke="#eceef1" vertical={false} />
+                  <XAxis
+                    dataKey={xField}
+                    tickFormatter={isMonth ? (m: number) => MONTH_NAMES[m - 1] ?? String(m) : undefined}
+                    tick={{ fontSize: 12, fill: "#7a828c" }}
+                    tickLine={false}
+                    axisLine={{ stroke: "#e2e5e9" }}
+                  />
+                  <YAxis
+                    tickFormatter={formatMoney}
+                    tick={{ fontSize: 12, fill: "#7a828c" }}
+                    tickLine={false}
+                    axisLine={{ stroke: "#e2e5e9" }}
+                    width={64}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "rgba(120, 130, 140, 0.06)" }}
+                    content={
+                      <ChartTooltip
+                        formatLabel={isMonth ? (m) => MONTH_NAMES[m - 1] ?? String(m) : undefined}
+                      />
+                    }
+                  />
+                  {parties
+                    .filter((party) => !hidden.has(party))
+                    .map((party) => (
+                      <Bar
+                        key={party}
+                        dataKey={party}
+                        fill={partyColor[party]}
+                        isAnimationActive={false}
+                      />
+                    ))}
+                </BarChart>
+              ) : (
+                <LineChart
+                  data={chartData}
+                  margin={{ top: 16, right: 24, bottom: 8, left: 8 }}
+                >
+                  <CartesianGrid stroke="#eceef1" vertical={false} />
+                  <XAxis
+                    dataKey={xField}
+                    tickFormatter={isMonth ? (m: number) => MONTH_NAMES[m - 1] ?? String(m) : undefined}
+                    tick={{ fontSize: 12, fill: "#7a828c" }}
+                    tickLine={false}
+                    axisLine={{ stroke: "#e2e5e9" }}
+                  />
+                  <YAxis
+                    tickFormatter={formatMoney}
+                    tick={{ fontSize: 12, fill: "#7a828c" }}
+                    tickLine={false}
+                    axisLine={{ stroke: "#e2e5e9" }}
+                    width={64}
+                  />
+                  <Tooltip
+                    content={
+                      <ChartTooltip
+                        formatLabel={isMonth ? (m) => MONTH_NAMES[m - 1] ?? String(m) : undefined}
+                      />
+                    }
+                  />
+                  {parties
+                    .filter((party) => !hidden.has(party))
+                    .map((party) => (
+                      <Line
+                        key={party}
+                        type="monotone"
+                        dataKey={party}
+                        stroke={partyColor[party]}
+                        strokeWidth={2.5}
+                        dot={false}
+                        activeDot={{ r: 4, strokeWidth: 2, fill: "#fff", stroke: partyColor[party] }}
+                        isAnimationActive={false}
+                      />
+                    ))}
+                </LineChart>
+              )}
             </ResponsiveContainer>
           )}
         </div>

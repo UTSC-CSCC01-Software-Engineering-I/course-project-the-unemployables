@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   fetchDonationSumByYearParty,
   fetchDonationSumByMonth,
+  fetchDonationSumByProvinceYear,
 } from "../api/trends";
 import type {
   YearPartySumResponse,
@@ -117,5 +118,54 @@ describe("fetchDonationSumByMonth", () => {
   it("propagates a network-level rejection (e.g. server unreachable)", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Failed to fetch")));
     await expect(fetchDonationSumByMonth(2015)).rejects.toThrow("Failed to fetch");
+  });
+});
+
+describe("fetchDonationSumByProvinceYear", () => {
+  it("requests the sum-by-province-year URL with an encoded province param", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(SAMPLE_YEAR_RESPONSE),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchDonationSumByProvinceYear("ON");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/donations/sum-by-province-year?province=ON"
+    );
+  });
+
+  it("resolves with the parsed JSON body on a successful response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(SAMPLE_YEAR_RESPONSE),
+      })
+    );
+
+    const result = await fetchDonationSumByProvinceYear("ON");
+    expect(result).toEqual(SAMPLE_YEAR_RESPONSE);
+  });
+
+  it("throws a descriptive error when the response is not ok", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({ error: "boom" }),
+      })
+    );
+
+    await expect(fetchDonationSumByProvinceYear("ON")).rejects.toThrow(
+      "Failed to fetch provincial donation trends: 500"
+    );
+  });
+
+  it("propagates a network-level rejection (e.g. server unreachable)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Failed to fetch")));
+    await expect(fetchDonationSumByProvinceYear("ON")).rejects.toThrow("Failed to fetch");
   });
 });

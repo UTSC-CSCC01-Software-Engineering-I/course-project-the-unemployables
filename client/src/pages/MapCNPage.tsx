@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-// import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useNavigate } from "react-router-dom";
 import { Map, MapControls, useMap } from "@/components/ui/map";
 import { InvalidFilterPopUp } from "@/components/ui/invalidFilterPopUp";
@@ -22,6 +22,11 @@ const API = "http://localhost:3001";
 
 // Donation data covers 2004-2024 per CDMP-data/README.md
 const YEARS = Array.from({ length: 2024 - 2004 + 1 }, (_, i) => 2024 - i);
+
+const MONTH_LABELS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
 
 const PARTY_COLORS: Record<string, string> = {
   LPC: "#d71920",
@@ -208,6 +213,12 @@ export function MapCNPage() {
   const [trendData, setTrendData] = useState<TrendPoint[] | null>(null);
   const [trendLoading, setTrendLoading] = useState(false);
 
+  // Monthly donation totals for the selected province + year(s), from
+  // /api/donations/sum-by-province-month. One value per calendar month.
+  type MonthlyPoint = { month: number; total: number };
+  const [monthlyData, setMonthlyData] = useState<MonthlyPoint[] | null>(null);
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
+
   useEffect(() => {
     if (!selected) { setTrendData(null); setTrendLoading(false); return; }
     const controller = new AbortController();
@@ -226,6 +237,41 @@ export function MapCNPage() {
       .finally(() => setTrendLoading(false));
     return () => controller.abort();
   }, [selected, mode]);
+
+  // Monthly breakdown: only meaningful for a selected province (the endpoint is
+  // province-scoped). Fetches each selected year and combines into 12 buckets;
+  // for a multi-year selection we average across years to match the panel's
+  // "Average Donations" framing above.
+  useEffect(() => {
+    if (mode !== "provinces" || !selected || selectedYears.length === 0) {
+      setMonthlyData(null);
+      setMonthlyLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setMonthlyLoading(true);
+    setMonthlyData(null);
+    Promise.all(
+      selectedYears.map(y =>
+        fetch(
+          `${API}/api/donations/sum-by-province-month?province=${encodeURIComponent(selected.code)}&year=${y}`,
+          { signal: controller.signal }
+        ).then(r => r.json())
+      )
+    )
+      .then(responses => {
+        const totals = new Array(12).fill(0);
+        for (const resp of responses) {
+          for (const row of (resp.data ?? []) as { month: number; total: number | string }[]) {
+            totals[row.month - 1] += Number(row.total);
+          }
+        }
+        setMonthlyData(totals.map((total, i) => ({ month: i + 1, total: total / selectedYears.length })));
+      })
+      .catch(err => { if (err.name !== "AbortError") console.error(err); })
+      .finally(() => setMonthlyLoading(false));
+    return () => controller.abort();
+  }, [selected, mode, selectedYears]);
 
   // byParty for both provinces and ridings comes from trendData (per-region click fetch).
   // When a party filter is active, only show that party's row.
@@ -435,6 +481,45 @@ export function MapCNPage() {
                         );
                       })}
                   </div>
+                </div>
+              )}
+
+              {mode === "provinces" && (
+                <div className="map-info-section">
+                  <div className="map-info-section-title">
+                    {isMultiYear
+                      ? "Avg. Monthly Donations"
+                      : `Monthly Donations (${selectedYears[0]})`}
+                  </div>
+                  {monthlyLoading ? (
+                    <div className="map-skeleton" style={{ height: 190, borderRadius: 8 }} />
+                  ) : monthlyData && monthlyData.some((d) => d.total > 0) ? (
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart
+                        data={monthlyData}
+                        margin={{ top: 8, right: 4, bottom: 0, left: 0 }}
+                      >
+                        <XAxis
+                          dataKey="month"
+                          tickFormatter={(m) => MONTH_LABELS[(m as number) - 1]}
+                          tick={{ fontSize: 10, fill: "#666" }}
+                          tickLine={false}
+                          axisLine={false}
+                          interval={0}
+                        />
+                        <YAxis hide />
+                        <Tooltip
+                          cursor={{ fill: "rgba(45, 146, 104, 0.08)" }}
+                          formatter={(v) => [formatMoney(v as number), "Donations"]}
+                          labelFormatter={(m) => MONTH_LABELS[(m as number) - 1]}
+                          contentStyle={{ fontSize: 12, borderRadius: 6, border: "1px solid #eee" }}
+                        />
+                        <Bar dataKey="total" fill="#2d9268" radius={[3, 3, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="map-info-placeholder">No data</div>
+                  )}
                 </div>
               )}
 

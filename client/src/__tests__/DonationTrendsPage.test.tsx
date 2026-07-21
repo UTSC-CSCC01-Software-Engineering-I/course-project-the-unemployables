@@ -5,6 +5,8 @@ import { DonationTrendsPage } from "../pages/DonationTrendsPage";
 import {
   fetchDonationSumByYearParty,
   fetchDonationSumByMonth,
+  fetchDonationSumByProvinceMonth,
+  fetchDonationSumByProvinceYear,
 } from "../api/trends";
 import type {
   YearPartySumResponse,
@@ -17,6 +19,8 @@ import type {
 vi.mock("../api/trends", () => ({
   fetchDonationSumByYearParty: vi.fn(),
   fetchDonationSumByMonth: vi.fn(),
+  fetchDonationSumByProvinceMonth: vi.fn(),
+  fetchDonationSumByProvinceYear: vi.fn(),
 }));
 
 // Recharts relies on real layout measurement (ResponsiveContainer needs a
@@ -31,7 +35,16 @@ vi.mock("recharts", () => ({
   LineChart: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="line-chart">{children}</div>
   ),
+  BarChart: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="bar-chart">{children}</div>
+  ),
+  PieChart: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="pie-chart">{children}</div>
+  ),
   Line: () => null,
+  Bar: () => null,
+  Pie: () => null,
+  Cell: () => null,
   XAxis: () => null,
   YAxis: () => null,
   CartesianGrid: () => null,
@@ -40,6 +53,8 @@ vi.mock("recharts", () => ({
 
 const mockedFetchYear = vi.mocked(fetchDonationSumByYearParty);
 const mockedFetchMonth = vi.mocked(fetchDonationSumByMonth);
+const mockedFetchProvinceMonth = vi.mocked(fetchDonationSumByProvinceMonth);
+const mockedFetchProvinceYear = vi.mocked(fetchDonationSumByProvinceYear);
 
 // ── Fixture data ────────────────────────────────────────────────────────
 
@@ -65,8 +80,12 @@ const MONTH_RESPONSE: MonthPartySumResponse = {
 beforeEach(() => {
   mockedFetchYear.mockReset();
   mockedFetchMonth.mockReset();
+  mockedFetchProvinceMonth.mockReset();
+  mockedFetchProvinceYear.mockReset();
   mockedFetchYear.mockResolvedValue(YEAR_RESPONSE);
   mockedFetchMonth.mockResolvedValue(MONTH_RESPONSE);
+  mockedFetchProvinceMonth.mockResolvedValue(MONTH_RESPONSE);
+  mockedFetchProvinceYear.mockResolvedValue(YEAR_RESPONSE);
 });
 
 describe("DonationTrendsPage — loading state", () => {
@@ -173,10 +192,10 @@ describe("DonationTrendsPage — monthly view", () => {
     await screen.findByTestId("line-chart");
 
     await user.click(screen.getByRole("tab", { name: "By Month" }));
-    const select = await screen.findByRole("combobox");
-    expect(select).toHaveValue("2015");
+    const yearSelect = await screen.findByLabelText("Year");
+    expect(yearSelect).toHaveValue("2015");
 
-    await user.selectOptions(select, "2013");
+    await user.selectOptions(yearSelect, "2013");
 
     expect(mockedFetchMonth).toHaveBeenLastCalledWith(2013);
     expect(
@@ -184,9 +203,103 @@ describe("DonationTrendsPage — monthly view", () => {
     ).toBeInTheDocument();
   });
 
+  it("defaults the province filter to All and uses the country-wide endpoint", async () => {
+    const user = userEvent.setup();
+    render(<DonationTrendsPage />);
+    await screen.findByTestId("line-chart");
+
+    await user.click(screen.getByRole("tab", { name: "By Month" }));
+    expect(await screen.findByLabelText("Province")).toHaveValue("");
+    expect(mockedFetchMonth).toHaveBeenCalled();
+    expect(mockedFetchProvinceMonth).not.toHaveBeenCalled();
+  });
+
+  it("uses the province-scoped endpoint when a province is selected", async () => {
+    const user = userEvent.setup();
+    render(<DonationTrendsPage />);
+    await screen.findByTestId("line-chart");
+
+    await user.click(screen.getByRole("tab", { name: "By Month" }));
+    const provinceSelect = await screen.findByLabelText("Province");
+    await user.selectOptions(provinceSelect, "ON");
+
+    expect(mockedFetchProvinceMonth).toHaveBeenLastCalledWith("ON", 2015);
+    expect(
+      await screen.findByText(/Monthly contributions by party — 2015 · Ontario/)
+    ).toBeInTheDocument();
+  });
+
   it("does not show the year selector in the default yearly view", async () => {
     render(<DonationTrendsPage />);
     await screen.findByTestId("line-chart");
-    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Year")).not.toBeInTheDocument();
+  });
+});
+
+describe("DonationTrendsPage — province filter in year view", () => {
+  it("shows the province filter (defaulted to All) in year view", async () => {
+    render(<DonationTrendsPage />);
+    await screen.findByTestId("line-chart");
+    expect(await screen.findByLabelText("Province")).toHaveValue("");
+    // All-provinces year view uses the country-wide endpoint, not the scoped one.
+    expect(mockedFetchYear).toHaveBeenCalled();
+    expect(mockedFetchProvinceYear).not.toHaveBeenCalled();
+  });
+
+  it("uses the province-scoped yearly endpoint when a province is selected", async () => {
+    const user = userEvent.setup();
+    render(<DonationTrendsPage />);
+    await screen.findByTestId("line-chart");
+
+    const provinceSelect = await screen.findByLabelText("Province");
+    await user.selectOptions(provinceSelect, "ON");
+
+    expect(mockedFetchProvinceYear).toHaveBeenLastCalledWith("ON");
+    expect(
+      await screen.findByText(/Total contributions by party, .* · Ontario/)
+    ).toBeInTheDocument();
+  });
+});
+
+describe("DonationTrendsPage — chart type", () => {
+  it("renders a line chart by default", async () => {
+    render(<DonationTrendsPage />);
+    expect(await screen.findByTestId("line-chart")).toBeInTheDocument();
+    expect(screen.queryByTestId("bar-chart")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("pie-chart")).not.toBeInTheDocument();
+  });
+
+  it("switches to a bar chart when Bar is selected", async () => {
+    const user = userEvent.setup();
+    render(<DonationTrendsPage />);
+    await screen.findByTestId("line-chart");
+
+    await user.click(screen.getByRole("tab", { name: "Bar" }));
+
+    expect(await screen.findByTestId("bar-chart")).toBeInTheDocument();
+    expect(screen.queryByTestId("line-chart")).not.toBeInTheDocument();
+  });
+
+  it("switches to a pie chart when Pie is selected", async () => {
+    const user = userEvent.setup();
+    render(<DonationTrendsPage />);
+    await screen.findByTestId("line-chart");
+
+    await user.click(screen.getByRole("tab", { name: "Pie" }));
+
+    expect(await screen.findByTestId("pie-chart")).toBeInTheDocument();
+    expect(screen.queryByTestId("line-chart")).not.toBeInTheDocument();
+  });
+
+  it("keeps the chart type when toggling granularity", async () => {
+    const user = userEvent.setup();
+    render(<DonationTrendsPage />);
+    await screen.findByTestId("line-chart");
+
+    await user.click(screen.getByRole("tab", { name: "Bar" }));
+    await screen.findByTestId("bar-chart");
+    await user.click(screen.getByRole("tab", { name: "By Month" }));
+
+    expect(await screen.findByTestId("bar-chart")).toBeInTheDocument();
   });
 });

@@ -264,6 +264,11 @@
 .map-info-panel.open {
   width: 300px;
   min-width: 300px;
+  /* Scroll vertically when content (multi-year chips, cumulative block, monthly
+     chart) exceeds the panel height; keep x hidden so the width transition and
+     collapse still clip cleanly. */
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .map-info-header {
