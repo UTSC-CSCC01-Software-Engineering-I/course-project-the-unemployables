@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { SlidersHorizontal, Eye, Download, Printer, ShieldCheck, AlertCircle, X } from "lucide-react";
+import { Search, SlidersHorizontal, Eye, Download, ShieldCheck, AlertCircle, X } from "lucide-react";
 import { fetchDonations } from "../api/donations";
 import { supabase } from "../lib/supabase";
 import type { Donation, DonationFilters } from "../types/index";
@@ -81,10 +81,10 @@ export function ResearcherDashboardPage() {
     page: 1,
     limit: PAGE_SIZE,
   });
-  const [filters, setFilters] = useState<DonationFilters>({
-    page: 1,
-    limit: PAGE_SIZE,
-  });
+  //const [filters, setFilters] = useState<DonationFilters>({
+    //page: 1,
+    //limit: PAGE_SIZE,
+  //});
 
   useEffect(() => {
     let active = true;
@@ -111,11 +111,7 @@ export function ResearcherDashboardPage() {
   }, [navigate]);
 
   useEffect(() => {
-    if (!hasSubmitted) {
-      setDonations([]);
-      setTotal(0);
-      return;
-    }
+    if (!hasSubmitted) return;
 
     let active = true;
 
@@ -124,7 +120,7 @@ export function ResearcherDashboardPage() {
       setLoading(true);
       setError("");
       try {
-        const response = await fetchDonations({ ...submittedFilters, page, limit: PAGE_SIZE });
+        const response = await fetchDonations(submittedFilters);
         if (!active) return;
         setDonations(response.data);
         setTotal(response.total);
@@ -140,34 +136,132 @@ export function ResearcherDashboardPage() {
     return () => {
       active = false;
     };
-  }, [hasSubmitted, page, submittedFilters]);
+  }, [hasSubmitted, submittedFilters]);
 
-  const pageCount = useMemo(() => Math.max(1, Math.ceil(total / PAGE_SIZE)), [total]);
+  const [advancedFilters, setAdvancedFilters] = useState<DonationFilters>({
+    page: 1,
+    limit: PAGE_SIZE,
+  });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
+  const [downloadScope, setDownloadScope] = useState<"current" | "range" | "all">("all");
+  const [downloadFrom, setDownloadFrom] = useState(1);
+  const [downloadTo, setDownloadTo] = useState(1);
+
+  const pageCount = useMemo(() => Math.max(1, Math.ceil(donations.length / PAGE_SIZE)), [donations.length]);
+    const visibleDonations = useMemo(() => {
+      const start = (page - 1) * PAGE_SIZE;
+      return donations.slice(start, start + PAGE_SIZE);
+    }, [donations, page]);
 
   const updateFilter = (field: keyof DonationFilters, value: string) => {
-    setFilters((current) => ({ ...current, [field]: value || undefined }));
+    setAdvancedFilters((current) => ({ ...current, [field]: value || undefined }));
   };
-
 
   const submit = (nextFilters: DonationFilters) => {
     setPage(1);
     setHasSubmitted(true);
+    setDonations([]);
+    setTotal(0);
     setSubmittedFilters({ ...nextFilters, page: 1, limit: PAGE_SIZE });
   };
 
   const submitFilters = (event: React.FormEvent) => {
     event.preventDefault();
-    const errors = validateFilters(filters);
+    const errors = validateFilters(advancedFilters);
     setValidationErrors(errors);
     setShowErrorBanner(Object.keys(errors).length > 0);
     if (Object.keys(errors).length > 0) return;
-    submit(filters);
+    submit(advancedFilters);
   };
 
   const resetFilters = () => {
-    setFilters({ page: 1, limit: PAGE_SIZE });
+    setAdvancedFilters({ page: 1, limit: PAGE_SIZE });
+    setSearchTerm("");
     setValidationErrors({});
     setShowErrorBanner(false);
+    setHasSubmitted(false);
+    setPage(1);
+    setDonations([]);
+    setTotal(0);
+  };
+
+  const submitSearch = (event: React.FormEvent) => {
+    event.preventDefault();
+    const parts = searchTerm.trim().split(/\s+/).filter(Boolean);
+
+    let nameOverride: Partial<DonationFilters>;
+    if (parts.length === 0) {
+      nameOverride = { donorName: undefined, firstName: undefined, lastName: undefined };
+    } else if (parts.length === 1) {
+      nameOverride = { donorName: parts[0], firstName: undefined, lastName: undefined };
+    } else {
+      const [first, ...rest] = parts;
+      nameOverride = { firstName: first, lastName: rest.join(" "), donorName: undefined };
+    }
+
+    // Merges with whatever's in the advanced panel for this one query,
+    // but never writes into advancedFilters — so the advanced inputs stay untouched.
+    submit({ ...advancedFilters, ...nameOverride });
+  };
+
+  function toCsv(rows: Donation[]): string {
+    const headers = ["Donor Name", "Political Party", "Amount", "Date", "Postal Code", "City", "Type"];
+    const escape = (value: unknown) => {
+      const str = String(value ?? "");
+      return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+    };
+
+    const lines = [headers.join(",")];
+    for (const donation of rows) {
+      const donorName = [donation.contributorFirstName, donation.contributorLastName].filter(Boolean).join(" ");
+      lines.push(
+        [
+          donorName,
+          donation.politicalParty,
+          donation.contributionAmount,
+          donation.dateReceived,
+          donation.postalCode,
+          donation.city,
+          donation.typeOfContributor,
+        ]
+          .map(escape)
+          .join(",")
+      );
+    }
+    return lines.join("\n");
+  }
+
+  const openDownloadDialog = () => {
+    setDownloadScope("all");
+    setDownloadFrom(1);
+    setDownloadTo(pageCount);
+    setShowDownloadDialog(true);
+  };
+
+  const handleDownload = () => {
+    let rows: Donation[];
+    if (downloadScope === "current") {
+      rows = visibleDonations;
+    } else if (downloadScope === "all") {
+      rows = donations;
+    } else {
+      const start = (downloadFrom - 1) * PAGE_SIZE;
+      const end = downloadTo * PAGE_SIZE;
+      rows = donations.slice(start, end);
+    }
+
+    const csv = toCsv(rows);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `donations-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setShowDownloadDialog(false);
   };
 
   return (
@@ -202,6 +296,25 @@ export function ResearcherDashboardPage() {
           </div>
         ) : null}
 
+        <form onSubmit={submitSearch} className="mt-4 flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search by donor name…"
+            className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm focus:border-emerald-600 focus:outline-none"
+          />
+        </div>
+        <button
+          type="submit"
+          className="rounded-lg bg-emerald-800 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-900"
+        >
+          Search
+        </button>
+      </form>
+
         {/* advanced filters panel */}
         <div className="mt-4 rounded-xl border border-gray-200 bg-white shadow-sm">
           <button
@@ -223,7 +336,7 @@ export function ResearcherDashboardPage() {
                   <div className="flex items-center gap-2">
                     <input
                       type="date"
-                      value={filters.dateFrom ?? ""}
+                      value={advancedFilters.dateFrom ?? ""}
                       onChange={(event) => updateFilter("dateFrom", event.target.value)}
                       className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
                         validationErrors.dateRange
@@ -234,7 +347,7 @@ export function ResearcherDashboardPage() {
                     <span className="text-sm text-gray-400">to</span>
                     <input
                       type="date"
-                      value={filters.dateTo ?? ""}
+                      value={advancedFilters.dateTo ?? ""}
                       onChange={(event) => updateFilter("dateTo", event.target.value)}
                       className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
                         validationErrors.dateRange
@@ -256,7 +369,7 @@ export function ResearcherDashboardPage() {
                     Political organization
                   </label>
                   <select
-                    value={filters.politicalParty ?? ""}
+                    value={advancedFilters.politicalParty ?? ""}
                     onChange={(event) => updateFilter("politicalParty", event.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-600 focus:outline-none"
                   >
@@ -278,7 +391,7 @@ export function ResearcherDashboardPage() {
                   </label>
                   <input
                     placeholder="e.g. ON"
-                    value={filters.province ?? ""}
+                    value={advancedFilters.province ?? ""}
                     onChange={(event) => updateFilter("province", event.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-600 focus:outline-none"
                   />
@@ -292,7 +405,7 @@ export function ResearcherDashboardPage() {
                     <input
                       type="number"
                       placeholder="$ Min"
-                      value={filters.amountMin ?? ""}
+                      value={advancedFilters.amountMin ?? ""}
                       onChange={(event) => updateFilter("amountMin", event.target.value)}
                       className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
                         validationErrors.amount
@@ -304,7 +417,7 @@ export function ResearcherDashboardPage() {
                     <input
                       type="number"
                       placeholder="$ Max"
-                      value={filters.amountMax ?? ""}
+                      value={advancedFilters.amountMax ?? ""}
                       onChange={(event) => updateFilter("amountMax", event.target.value)}
                       className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
                         validationErrors.amount
@@ -326,7 +439,7 @@ export function ResearcherDashboardPage() {
                     Donor first name
                   </label>
                   <input
-                    value={filters.firstName ?? ""}
+                    value={advancedFilters.firstName ?? ""}
                     onChange={(event) => updateFilter("firstName", event.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-600 focus:outline-none"
                   />
@@ -337,7 +450,7 @@ export function ResearcherDashboardPage() {
                     Donor last name
                   </label>
                   <input
-                    value={filters.lastName ?? ""}
+                    value={advancedFilters.lastName ?? ""}
                     onChange={(event) => updateFilter("lastName", event.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-600 focus:outline-none"
                   />
@@ -382,17 +495,11 @@ export function ResearcherDashboardPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  title="Export not yet wired up — see note below"
+                  onClick={openDownloadDialog}
+                  title="Download records"
                   className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
                 >
                   <Download className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
-                >
-                  <Printer className="h-4 w-4" />
                 </button>
               </div>
             </div>
@@ -410,7 +517,7 @@ export function ResearcherDashboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {donations.map((donation, index) => {
+                  {visibleDonations.map((donation, index) => {
                     const donorName = [donation.contributorFirstName, donation.contributorLastName]
                       .filter(Boolean)
                       .join(" ")
@@ -466,8 +573,8 @@ export function ResearcherDashboardPage() {
 
             <div className="flex items-center justify-between border-t border-gray-100 px-5 py-4">
               <span className="text-sm text-gray-500">
-                Showing {(page - 1) * PAGE_SIZE + (donations.length ? 1 : 0)}–
-                {(page - 1) * PAGE_SIZE + donations.length} of {total.toLocaleString()} records
+                Showing {(page - 1) * PAGE_SIZE + (visibleDonations.length ? 1 : 0)}–
+                {(page - 1) * PAGE_SIZE + visibleDonations.length} of {total.toLocaleString()} records
               </span>
               <div className="flex items-center gap-2">
                 <button
