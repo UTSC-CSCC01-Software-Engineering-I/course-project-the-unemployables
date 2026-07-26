@@ -6,7 +6,8 @@
 
 .site-footer-top {
   display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr 1.2fr;
+  /* Brand + the two link columns in Footer.tsx. Keep in sync. */
+  grid-template-columns: 1.6fr 1fr 1fr;
   gap: 32px;
   max-width: 1100px;
   margin: 0 auto;
@@ -19,14 +20,22 @@
   font-weight: 800;
   letter-spacing: 0.5px;
   color: #16202b;
-  margin-bottom: 12px;
+  margin-bottom: 4px;
+}
+
+.site-footer-brand .site-footer-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #545c66;
+  margin-bottom: 10px;
+  max-width: 260px;
 }
 
 .site-footer-brand p {
   font-size: 12.5px;
   line-height: 1.65;
   color: #8a93a0;
-  max-width: 240px;
+  max-width: 280px;
 }
 
 .site-footer-col h4 {
@@ -50,51 +59,40 @@
   color: #16202b;
 }
 
-.site-footer-form {
-  display: flex;
-  gap: 8px;
+.site-footer-col a:focus-visible {
+  outline: 2px solid #16726b;
+  outline-offset: 2px;
 }
 
-.site-footer-form input {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  padding: 8px 10px;
-  border: 1px solid #d6dadf;
-  border-radius: 7px;
-  background: #f8f9fb;
-  color: #16202b;
+/* ── Data attribution ────────────────────────────────── */
+
+.site-footer-source {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding-top: 20px;
+  border-top: 1px solid #f0f1f3;
 }
 
-.site-footer-form input::placeholder {
-  color: #aab0b8;
+.site-footer-source p {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #8a93a0;
+  max-width: 720px;
 }
 
-.site-footer-form button {
-  flex-shrink: 0;
-  width: 34px;
-  height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #16202b;
-  color: #fff;
-  border: none;
-  border-radius: 7px;
-  cursor: pointer;
-}
-
-.site-footer-form button:hover {
-  background: #2b333c;
+.site-footer-source p + p {
+  margin-top: 6px;
 }
 
 .site-footer-bottom {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
   max-width: 1100px;
   margin: 0 auto;
   padding-top: 20px;
+  margin-top: 20px;
   border-top: 1px solid #f0f1f3;
 }
 
@@ -103,15 +101,22 @@
   color: #aab0b8;
 }
 
-.site-footer-icons {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  color: #aab0b8;
+.site-footer-affiliation {
+  text-align: right;
 }
 
 @media (max-width: 880px) {
   .site-footer-top {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .site-footer-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .site-footer-affiliation {
+    text-align: left;
   }
 }

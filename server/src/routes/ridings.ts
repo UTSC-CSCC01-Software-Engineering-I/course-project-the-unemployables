@@ -11,13 +11,29 @@ import type {
 
 const router = Router();
 
-// GET /api/ridings/rankings — all-time totals for every riding (summed across
-// every year and party), plus national all-time totals. Powers the Riding
-// Lookup page's "#N of 343" rank badge and "vs. national average" comparison.
-// Reuses the same riding_party_summary table as the routes below — just a
-// different aggregation (no year filter, grouped by fed_num only) — so no new
-// table is needed.
-router.get("/rankings", async (_req: Request, res: Response) => {
+// ── Rankings cache ──────────────────────────────────────────────────────────
+//
+// The rankings response is built by paging through the whole
+// `riding_party_summary` table and aggregating it in memory. That's a full
+// scan, and it used to run on *every* request — including every homepage load,
+// since the stat band and the map teaser both read this endpoint.
+//
+// The underlying data is static (the materialized views are never refreshed
+// during a run), so the result is memoised. `inFlight` matters as much as the
+// cache itself: without it, a cold start with several concurrent visitors
+// fires several simultaneous full scans instead of one.
+const RANKINGS_TTL_MS = Number(process.env["RANKINGS_CACHE_TTL_MS"] ?? 60 * 60 * 1000);
+
+let rankingsCache: { value: RidingRankingsResponse; expiresAt: number } | null = null;
+let rankingsInFlight: Promise<RidingRankingsResponse> | null = null;
+
+/** Clears the memoised rankings. Exported for tests and for a post-reingest hook. */
+export function invalidateRankingsCache(): void {
+  rankingsCache = null;
+  rankingsInFlight = null;
+}
+
+async function buildRankings(): Promise<RidingRankingsResponse> {
   const PAGE = 1000;
   let allRows: { fed_num: number; party: string; total_monetary: number; donation_count: number; donor_count: number }[] = [];
   let from = 0;
@@ -28,10 +44,7 @@ router.get("/rankings", async (_req: Request, res: Response) => {
       .select("fed_num, party, total_monetary, donation_count, donor_count")
       .range(from, from + PAGE - 1);
 
-    if (error) {
-      res.status(500).json({ error: error.message });
-      return;
-    }
+    if (error) throw new Error(error.message);
 
     allRows = allRows.concat(data ?? []);
     if ((data?.length ?? 0) < PAGE) break;
@@ -74,7 +87,7 @@ router.get("/rankings", async (_req: Request, res: Response) => {
   // by locating its fedNum in this array (index + 1).
   const ridings = Object.values(byRidingMap).sort((a, b) => b.totalMonetary - a.totalMonetary);
 
-  const response: RidingRankingsResponse = {
+  return {
     ridings,
     ridingCount: ridings.length,
     nationalTotals: {
@@ -84,8 +97,48 @@ router.get("/rankings", async (_req: Request, res: Response) => {
       byParty: Object.values(nationalByPartyMap),
     },
   };
+}
 
-  res.json(response);
+async function getRankings(): Promise<RidingRankingsResponse> {
+  if (rankingsCache && rankingsCache.expiresAt > Date.now()) {
+    return rankingsCache.value;
+  }
+
+  // Someone else is already scanning — wait on their result rather than
+  // starting a second scan of the same table.
+  if (rankingsInFlight) return rankingsInFlight;
+
+  rankingsInFlight = buildRankings()
+    .then((value) => {
+      rankingsCache = { value, expiresAt: Date.now() + RANKINGS_TTL_MS };
+      return value;
+    })
+    .finally(() => {
+      // Cleared on failure too, so a transient Supabase error doesn't wedge
+      // every later request onto the same rejected promise.
+      rankingsInFlight = null;
+    });
+
+  return rankingsInFlight;
+}
+
+// GET /api/ridings/rankings — all-time totals for every riding (summed across
+// every year and party), plus national all-time totals. Powers the Riding
+// Lookup page's rank badge and "vs. national average" comparison, and the
+// homepage stat band. Reuses the same riding_party_summary table as the routes
+// below — just a different aggregation (no year filter, grouped by fed_num
+// only) — so no new table is needed. Served from the memoised copy above.
+router.get("/rankings", async (_req: Request, res: Response) => {
+  try {
+    const response = await getRankings();
+    // Lets the browser and any proxy in front of the API skip the round trip
+    // entirely for repeat visits.
+    res.set("Cache-Control", `public, max-age=${Math.floor(RANKINGS_TTL_MS / 1000)}`);
+    res.json(response);
+  } catch (err) {
+    console.error("GET /ridings/rankings failed:", err);
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown server error" });
+  }
 });
 
 // GET /api/ridings/summary?year=2022&party=LPC  — single year, party filter

@@ -101,6 +101,101 @@
   background: #f4f5f7;
 }
 
+/* ── Stat band ── */
+.home-stats {
+  background: #fff;
+  border-bottom: 1px solid #e7e9ec;
+}
+
+.home-stats-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 26px 40px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  text-align: center;
+}
+
+.home-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.home-stat-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: #116a5f;
+  letter-spacing: -0.4px;
+  line-height: 1.1;
+}
+
+/* Fetch failed — figure stays a muted dash rather than shimmering forever. */
+.home-stat-value.unavailable {
+  color: #c2c8cf;
+}
+
+/* Placeholder shown while the national totals are in flight. Sized to match
+   .home-stat-value's line box so nothing shifts when the real number lands. */
+.home-stat-skeleton {
+  display: block;
+  width: 88px;
+  height: 26px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #e6eaee 25%, #f4f6f8 37%, #e6eaee 63%);
+  background-size: 400% 100%;
+  animation: home-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes home-skeleton-shimmer {
+  from {
+    background-position: 100% 50%;
+  }
+  to {
+    background-position: 0 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-stat-skeleton,
+  .home-geo-tooltip-skeleton {
+    animation: none;
+    background: #e6eaee;
+  }
+}
+
+/* Screen-reader-only announcement target for the stat band. */
+.home-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.home-stats-error {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 40px 20px;
+  text-align: center;
+  font-size: 12.5px;
+  color: #9aa3ad;
+}
+
+.home-stat-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #8a929c;
+}
+
 /* ── Tools ── */
 .home-tools {
   padding: 64px 40px;
@@ -127,10 +222,14 @@
   color: #6b7480;
 }
 
+/* auto-fit + justify-content keeps the row centred no matter how many cards
+   TOOL_CARDS holds, so adding or removing one won't leave the row hanging
+   off to the left the way a hard-coded 3-column grid did. */
 .home-tools-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 320px));
   gap: 20px;
+  justify-content: center;
 }
 
 .home-tool-card {
@@ -139,6 +238,8 @@
   border-radius: 14px;
   padding: 26px 24px;
   box-shadow: 0 1px 2px rgba(20, 30, 40, 0.03);
+  display: flex;
+  flex-direction: column;
 }
 
 .home-tool-icon {
@@ -163,7 +264,6 @@
   line-height: 1.6;
   color: #707880;
   margin-bottom: 22px;
-  min-height: 96px;
 }
 
 .home-tool-link {
@@ -174,10 +274,66 @@
   font-weight: 600;
   color: #116a5f;
   text-decoration: none;
+  /* Pins the link to the bottom so links line up across cards of
+     differing description lengths (replaces the old min-height hack). */
+  margin-top: auto;
+  align-self: flex-start;
 }
 
 .home-tool-link:hover {
   text-decoration: underline;
+}
+
+/* ── Locked (auth-gated) card ── */
+.home-tool-card.locked {
+  background: #f4f5f7;
+  border-color: #e2e5e9;
+  box-shadow: none;
+}
+
+.home-tool-card.locked .home-tool-icon {
+  /* Overrides the inline accent colours from TOOL_CARDS. */
+  background: #e4e7ea !important;
+  color: #9aa3ad !important;
+}
+
+.home-tool-card.locked h3,
+.home-tool-card.locked p {
+  color: #9aa3ad;
+}
+
+.home-tool-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #8a929c;
+  background: #e8eaed;
+  border: 1px solid #dcdfe3;
+  border-radius: 7px;
+  padding: 7px 11px;
+  margin-top: auto;
+  align-self: flex-start;
+  cursor: not-allowed;
+  user-select: none;
+}
+
+.home-tool-locked svg {
+  flex-shrink: 0;
+}
+
+/* Shown only while the persisted session is still being read, so the card
+   never renders a wrong lock state and then flips. */
+.home-tool-pending {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #a8b0b8;
+  margin-top: auto;
+  align-self: flex-start;
+  padding: 7px 0;
 }
 
 /* ── Geospatial CTA ── */
@@ -249,6 +405,41 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
+  text-decoration: none;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.home-geo-preview-frame:hover {
+  border-color: rgba(63, 199, 173, 0.75);
+  transform: translateY(-2px);
+}
+
+.home-geo-preview-frame:focus-visible {
+  outline: 2px solid #3fc7ad;
+  outline-offset: 3px;
+}
+
+/* Sits bottom-right inside the frame — the map's only entry point in this
+   section now that the duplicate button is gone. */
+.home-geo-preview-cta {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #e3e8f0;
+  background: rgba(8, 28, 58, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 7px;
+  padding: 6px 10px;
+}
+
+.home-geo-preview-frame:hover .home-geo-preview-cta {
+  color: #fff;
+  border-color: rgba(63, 199, 173, 0.6);
 }
 
 .home-geo-map {
@@ -284,10 +475,31 @@
   color: #16202b;
 }
 
+.home-geo-tooltip-skeleton {
+  display: block;
+  width: 58px;
+  height: 15px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #e6eaee 25%, #f4f6f8 37%, #e6eaee 63%);
+  background-size: 400% 100%;
+  animation: home-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
 /* ── Responsive ── */
 @media (max-width: 880px) {
-  .home-tools-grid {
-    grid-template-columns: 1fr;
+  .home-stats-inner {
+    grid-template-columns: repeat(2, 1fr);
+    padding: 22px 24px;
+    gap: 22px 16px;
+  }
+
+  .home-stat-value {
+    font-size: 21px;
+  }
+
+  .home-stat-skeleton {
+    width: 74px;
+    height: 23px;
   }
 
   .home-geo {

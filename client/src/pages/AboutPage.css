@@ -1,0 +1,156 @@
+.about {
+  flex: 1;
+  overflow-y: auto;
+  background: #f8f9fb;
+}
+
+/* ── Hero ── */
+.about-hero {
+  padding: 48px 40px 40px;
+  background: linear-gradient(135deg, #fbfbfc 0%, #eef0f3 100%);
+  border-bottom: 1px solid #e7e9ec;
+}
+
+.about-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #0e7a73;
+  background: #c9f3ea;
+  padding: 5px 12px;
+  border-radius: 999px;
+  margin-bottom: 16px;
+}
+
+.about-title {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #16202b;
+  letter-spacing: -0.5px;
+  margin-bottom: 12px;
+}
+
+.about-subtitle {
+  font-size: 15px;
+  line-height: 1.65;
+  color: #6b7480;
+  max-width: 620px;
+  margin-bottom: 18px;
+}
+
+/* Temporary — remove once the real copy lands. */
+.about-draft-note {
+  display: inline-block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #8a6100;
+  background: #fdf3d7;
+  border: 1px solid #f2e2ae;
+  border-radius: 8px;
+  padding: 8px 14px;
+}
+
+/* ── Body ── */
+.about-body {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 48px 40px 56px;
+  display: grid;
+  gap: 20px;
+}
+
+.about-section {
+  background: #fff;
+  border: 1px solid #e7e9ec;
+  border-radius: 14px;
+  padding: 26px 28px;
+  box-shadow: 0 1px 2px rgba(20, 30, 40, 0.03);
+}
+
+.about-section-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.about-section-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e8eef7;
+  color: #33507a;
+  flex-shrink: 0;
+}
+
+.about-section-head h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #16202b;
+  margin: 0;
+}
+
+.about-section-intent {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: #707880;
+  margin-bottom: 16px;
+}
+
+/* ── Placeholder scaffolding ── */
+.about-placeholder-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.about-placeholder {
+  position: relative;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #8a929c;
+  background: #f4f6f8;
+  border: 1px dashed #cfd6de;
+  border-radius: 8px;
+  padding: 9px 12px 9px 34px;
+}
+
+.about-placeholder::before {
+  content: "TBD";
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  color: #9aa3ad;
+}
+
+/* ── Responsive ── */
+@media (max-width: 880px) {
+  .about-hero {
+    padding: 36px 24px 32px;
+  }
+
+  .about-title {
+    font-size: 25px;
+  }
+
+  .about-body {
+    padding: 32px 24px 40px;
+  }
+
+  .about-section {
+    padding: 22px 20px;
+  }
+}

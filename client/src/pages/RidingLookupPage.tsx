@@ -15,6 +15,7 @@ import {
 import { fetchRidingSummary, fetchRidingRankings } from "../api/ridings";
 import type { RidingSummary, RidingPartyBreakdown, RidingRankingsResponse } from "../types/index";
 import { provinceForFedNum, ALL_PROVINCES } from "../utils/province";
+import { DATA_YEARS } from "../utils/years";
 import "./RidingLookupPage.css";
 
 // ── Types ───────────────────────────────────────────────────────────────
@@ -63,8 +64,8 @@ const PARTY_COLORS: Record<string, string> = {
   PPC: "#4b306a",
 };
 
-// Donation data covers 2004-2024 per CDMP-data/README.md
-const YEARS = Array.from({ length: 2024 - 2004 + 1 }, (_, i) => 2024 - i);
+// Donation data covers 2004-2024 — see utils/years.ts for the shared window.
+const YEARS = DATA_YEARS;
 
 function formatMoney(amount: number): string {
   if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
