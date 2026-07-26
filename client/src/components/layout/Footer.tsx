@@ -1,5 +1,5 @@
-import { Globe, Rss } from "lucide-react";
 import { Link } from "react-router-dom";
+import { DATA_FIRST_YEAR, DATA_LAST_YEAR } from "@/utils/years";
 import "./Footer.css";
 
 // The grid below is sized to exactly these columns. If you add or remove one,
@@ -29,10 +29,11 @@ export function Footer() {
       <div className="site-footer-top">
         <div className="site-footer-brand">
           <span className="site-footer-logo">CDMP</span>
+          <p className="site-footer-name">Canadian Donations Mapping Platform</p>
           <p>
-            Canadian Donor Mapping Project. Nonpartisan, independent
-            accountability into political fundraising through open data and
-            visualization.
+            Federal political contribution records are already public. This
+            platform makes them explorable — mapped to electoral geography,
+            filterable by party and year, and open to anyone without an account.
           </p>
         </div>
 
@@ -48,12 +49,24 @@ export function Footer() {
         ))}
       </div>
 
+      {/* Attribution rather than decoration: the previous globe and RSS icons
+          looked clickable, weren't links, and pointed at nothing. */}
+      <div className="site-footer-source">
+        <p>
+          Contribution data published by Elections Canada, {DATA_FIRST_YEAR}&ndash;
+          {DATA_LAST_YEAR}. Electoral district boundaries published by Elections Canada.
+        </p>
+        <p>
+          Public figures on this site are aggregated. Individual-level records are
+          restricted to approved, university-affiliated researchers.
+        </p>
+      </div>
+
       <div className="site-footer-bottom">
-        <p>© 2026 Canadian Donor Mapping Project.</p>
-        <div className="site-footer-icons">
-          <Globe size={16} strokeWidth={1.8} />
-          <Rss size={16} strokeWidth={1.8} />
-        </div>
+        <p>© 2026 Canadian Donations Mapping Platform.</p>
+        <p className="site-footer-affiliation">
+          A project of the Policy Horizons Lab, University of Toronto Scarborough.
+        </p>
       </div>
     </footer>
   );

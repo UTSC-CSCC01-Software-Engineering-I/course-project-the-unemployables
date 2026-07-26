@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, Lock, MapPinned, Scale, SlidersHorizontal } from "lucide-react";
+import { ArrowRight, Lock, MapPin, MapPinned, SlidersHorizontal, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 import { CanadaSilhouette } from "@/assets/CanadaSilhouette";
 import { Footer } from "@/components/layout/Footer";
@@ -22,24 +22,28 @@ interface ToolCard {
 }
 
 const TOOL_CARDS: ToolCard[] = [
+  // Card titles match the page they open and the sidebar entry for it. The
+  // copy describes only what the page actually does — the earlier version
+  // promised donation brackets and contributor demographics, neither of which
+  // exists here (Elections Canada doesn't publish donor demographics at all).
   {
-    icon: MapPinned,
+    icon: MapPin,
     iconBg: "#ccf3ea",
     iconColor: "#0e8a73",
-    title: "Filter by Party",
+    title: "Riding Lookup",
     description:
-      "Narrow contributions by province, riding, or postal code. Identify local trends and regional financial hubs at a glance.",
-    linkLabel: "Riding Analysis",
+      "Search any federal electoral district for its contribution totals, party breakdown, and national rank — then compare it against another riding.",
+    linkLabel: "Look Up a Riding",
     to: "/riding-lookup",
   },
   {
-    icon: Scale,
+    icon: TrendingUp,
     iconBg: "#dde3fb",
     iconColor: "#4452c4",
-    title: "View Donation Trends",
+    title: "Donation Trends",
     description:
-      "Direct side-by-side comparison of party funding sources, donation brackets, and contributor demographics across election cycles.",
-    linkLabel: "Donation Trends",
+      "Track contributions to each party over time, by year or month, across Canada or within a single province. View as a line, bar, or pie chart.",
+    linkLabel: "View Donation Trends",
     to: "/donation-trends",
   },
   {

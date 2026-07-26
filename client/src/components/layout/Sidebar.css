@@ -5,6 +5,27 @@
   padding: 20px 14px;
   border-right: 1px solid #e7e9ec;
   background: #fafbfc;
+  transition: flex-basis 0.18s ease, padding 0.18s ease;
+}
+
+/* Icon-only rail. Wide enough for a 34px hit target plus the padding, so the
+   toggle and every nav icon stay comfortably clickable. */
+.side-nav.collapsed {
+  flex: 0 0 60px;
+  padding: 20px 10px;
+  align-items: stretch;
+}
+
+.side-nav-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.side-nav.collapsed .side-nav-header {
+  justify-content: center;
 }
 
 .side-nav-label {
@@ -14,7 +35,26 @@
   text-transform: uppercase;
   color: #aab0b8;
   padding: 0 10px;
-  margin-bottom: 12px;
+}
+
+.side-nav-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: #8a93a0;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.side-nav-toggle:hover {
+  background: #eef1f3;
+  color: #1a2e24;
 }
 
 .side-nav-list {
@@ -23,17 +63,42 @@
   gap: 2px;
 }
 
+/* Shared by the NavLink, the locked <button>, and the pending <span> so all
+   three rows line up identically. Buttons need the font/border resets. */
 .side-nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
   padding: 9px 10px;
+  border: none;
   border-radius: 7px;
+  background: transparent;
+  font-family: inherit;
   font-size: 13.5px;
   font-weight: 500;
+  text-align: left;
   color: #5b6470;
   text-decoration: none;
+  cursor: pointer;
   transition: background 0.15s, color 0.15s;
+}
+
+.side-nav.collapsed .side-nav-item {
+  justify-content: center;
+  padding: 9px 0;
+}
+
+.side-nav-item svg {
+  flex-shrink: 0;
+}
+
+.side-nav-item-label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .side-nav-item:hover {
@@ -44,6 +109,40 @@
 .side-nav-item.active {
   background: #e8f5ef;
   color: #16726b;
+}
+
+.side-nav-item:focus-visible,
+.side-nav-toggle:focus-visible,
+.side-nav-download:focus-visible {
+  outline: 2px solid #16726b;
+  outline-offset: 2px;
+}
+
+/* Locked: still legible and still clickable (it opens the sign-in prompt),
+   just visibly not a live destination. */
+.side-nav-item.locked {
+  color: #9aa2ac;
+}
+
+.side-nav-item.locked:hover {
+  background: #f0f1f3;
+  color: #6b7480;
+}
+
+.side-nav-item-lock {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+/* Session still resolving — no hover, no pointer, no guess either way. */
+.side-nav-item.pending {
+  color: #c2c7ce;
+  cursor: default;
+}
+
+.side-nav-item.pending:hover {
+  background: transparent;
+  color: #c2c7ce;
 }
 
 .side-nav-download {
@@ -57,12 +156,150 @@
   border: 1px solid #d8dce0;
   background: #eef0f2;
   color: #4a5158;
+  font-family: inherit;
   font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s;
 }
 
+.side-nav.collapsed .side-nav-download {
+  padding: 9px 0;
+}
+
 .side-nav-download:hover {
   background: #e3e6e9;
+}
+
+/* ── Sign-in prompt ──────────────────────────────────── */
+
+.side-nav-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(16, 32, 43, 0.45);
+}
+
+.side-nav-modal {
+  width: 100%;
+  max-width: 380px;
+  padding: 24px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 40px rgba(16, 32, 43, 0.22);
+  text-align: center;
+}
+
+.side-nav-modal:focus {
+  outline: none;
+}
+
+.side-nav-modal-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 14px;
+  border-radius: 50%;
+  background: #e8f5ef;
+  color: #16726b;
+}
+
+.side-nav-modal-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #16202b;
+  margin-bottom: 8px;
+}
+
+.side-nav-modal-body {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: #6b7480;
+  margin-bottom: 20px;
+}
+
+.side-nav-modal-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.side-nav-modal-btn {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.side-nav-modal-btn:focus-visible {
+  outline: 2px solid #16726b;
+  outline-offset: 2px;
+}
+
+.side-nav-modal-btn.secondary {
+  border: 1px solid #d8dce0;
+  background: #fff;
+  color: #4a5158;
+}
+
+.side-nav-modal-btn.secondary:hover {
+  background: #f3f5f7;
+}
+
+.side-nav-modal-btn.primary {
+  border: 1px solid #16726b;
+  background: #16726b;
+  color: #fff;
+}
+
+.side-nav-modal-btn.primary:hover {
+  background: #125c56;
+  border-color: #125c56;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .side-nav,
+  .side-nav-item,
+  .side-nav-toggle,
+  .side-nav-download {
+    transition: none;
+  }
+}
+
+/* On narrow screens the sidebar is always the rail — a 220px panel leaves the
+   map and charts with nothing usable beside it. */
+@media (max-width: 720px) {
+  .side-nav {
+    flex-basis: 60px;
+    padding: 20px 10px;
+  }
+
+  .side-nav-label,
+  .side-nav-item-label,
+  .side-nav-item-lock,
+  .side-nav-download span,
+  /* The toggle can't change anything here — the rail is forced. */
+  .side-nav-toggle {
+    display: none;
+  }
+
+  .side-nav-header {
+    justify-content: center;
+  }
+
+  .side-nav-item,
+  .side-nav-download {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
 }
