@@ -1,5 +1,27 @@
 import { Globe, Rss } from "lucide-react";
+import { Link } from "react-router-dom";
 import "./Footer.css";
+
+// The grid below is sized to exactly these columns. If you add or remove one,
+// update `grid-template-columns` in Footer.css to match — a mismatch is what
+// previously left two empty columns of whitespace on the homepage.
+const LINK_COLUMNS: { heading: string; links: { to: string; label: string }[] }[] = [
+  {
+    heading: "Explore",
+    links: [
+      { to: "/map", label: "Interactive Map" },
+      { to: "/riding-lookup", label: "Riding Lookup" },
+      { to: "/donation-trends", label: "Donation Trends" },
+    ],
+  },
+  {
+    heading: "Resources",
+    links: [
+      { to: "/about", label: "About the Data" },
+      { to: "/login", label: "Researcher Login" },
+    ],
+  },
+];
 
 export function Footer() {
   return (
@@ -14,10 +36,16 @@ export function Footer() {
           </p>
         </div>
 
-        <div className="site-footer-col">
-          <h4>Resources</h4>
-        </div>
-
+        {LINK_COLUMNS.map(({ heading, links }) => (
+          <div className="site-footer-col" key={heading}>
+            <h4>{heading}</h4>
+            {links.map(({ to, label }) => (
+              <Link key={to} to={to}>
+                {label}
+              </Link>
+            ))}
+          </div>
+        ))}
       </div>
 
       <div className="site-footer-bottom">

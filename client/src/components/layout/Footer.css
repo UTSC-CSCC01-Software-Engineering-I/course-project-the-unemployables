@@ -6,7 +6,8 @@
 
 .site-footer-top {
   display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr 1.2fr;
+  /* Brand + the two link columns in Footer.tsx. Keep in sync. */
+  grid-template-columns: 1.6fr 1fr 1fr;
   gap: 32px;
   max-width: 1100px;
   margin: 0 auto;

@@ -4,9 +4,12 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import "./TopNav.css";
 
+// Global/orientation nav only. The analytical tools (Riding Lookup, Donation
+// Trends, Advanced Filters) live in the Sidebar, so they're deliberately not
+// repeated here. These two are the pages the Sidebar can't reach: the map
+// (which hides the Sidebar entirely) and the data-provenance page.
 const LINKS = [
-  { to: "/", label: "Map Exploration" },
-  { to: "/region", label: "Region Detail" },
+  { to: "/map", label: "Interactive Map" },
   { to: "/about", label: "About Data" },
 ];
 
