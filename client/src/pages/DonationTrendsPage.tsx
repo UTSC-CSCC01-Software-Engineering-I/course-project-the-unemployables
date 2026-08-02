@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   LineChart,
   Line,
@@ -121,7 +121,11 @@ export function DonationTrendsPage() {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [granularity, setGranularity] = useState<Granularity>("year");
   const [chartKind, setChartKind] = useState<ChartKind>("line");
-  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  // Month view supports picking multiple years; the chart then shows the
+  // month-by-month average across them (like the map's province panel).
+  const [selectedYears, setSelectedYears] = useState<number[]>([]);
+  const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
+  const yearDropdownRef = useRef<HTMLDivElement>(null);
   // null = All provinces (uses the country-wide sum-by-month endpoint).
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
 
@@ -145,7 +149,10 @@ export function DonationTrendsPage() {
           "year"
         );
         setYearRows(rows);
-        setSelectedYear((prev) => prev ?? rows[rows.length - 1]?.year ?? null);
+        // Seed the month-view year picker with the most recent year.
+        setSelectedYears((prev) =>
+          prev.length ? prev : rows.length ? [rows[rows.length - 1].year] : []
+        );
         setError(null);
       })
       .catch((err: unknown) => {
@@ -159,21 +166,36 @@ export function DonationTrendsPage() {
     };
   }, []);
 
-  // Fetch monthly totals when viewing a specific year by month. Uses the
-  // province-scoped endpoint when a province is picked, else the country-wide one.
+  // Fetch monthly totals when viewing by month. Fetches each selected year (via
+  // the province-scoped endpoint when a province is picked, else the country-wide
+  // one) and averages the totals month-by-month across the chosen years.
   useEffect(() => {
-    if (granularity !== "month" || selectedYear === null) return;
+    if (granularity !== "month" || selectedYears.length === 0) return;
     let cancelled = false;
     setLoading(true);
-    const request = selectedProvince
-      ? fetchDonationSumByProvinceMonth(selectedProvince, selectedYear)
-      : fetchDonationSumByMonth(selectedYear);
-    request
-      .then((res) => {
+    Promise.all(
+      selectedYears.map((y) =>
+        selectedProvince
+          ? fetchDonationSumByProvinceMonth(selectedProvince, y)
+          : fetchDonationSumByMonth(y)
+      )
+    )
+      .then((responses) => {
         if (cancelled) return;
+        // Sum totals per (month, party) across the years, then divide to average.
+        const acc = new Map<string, { month: number; party: string; total: number }>();
+        for (const res of responses) {
+          for (const r of res.data) {
+            const key = `${r.month}|${r.party}`;
+            const cur = acc.get(key);
+            if (cur) cur.total += Number(r.total);
+            else acc.set(key, { month: r.month, party: r.party, total: Number(r.total) });
+          }
+        }
+        const n = selectedYears.length;
         setMonthRows(
           pivot(
-            res.data.map((r) => ({ x: r.month, party: r.party, total: r.total })),
+            [...acc.values()].map((v) => ({ x: v.month, party: v.party, total: v.total / n })),
             "month"
           )
         );
@@ -188,7 +210,7 @@ export function DonationTrendsPage() {
     return () => {
       cancelled = true;
     };
-  }, [granularity, selectedYear, selectedProvince]);
+  }, [granularity, selectedYears, selectedProvince]);
 
   // Fetch province-scoped yearly totals when a province is picked in year view.
   // With no province selected we fall back to the all-province `yearRows`.
@@ -220,6 +242,17 @@ export function DonationTrendsPage() {
       cancelled = true;
     };
   }, [granularity, selectedProvince]);
+
+  // Close the year dropdown when clicking outside of it.
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (yearDropdownRef.current && !yearDropdownRef.current.contains(e.target as Node)) {
+        setIsYearDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
 
   const isMonth = granularity === "month";
   const xField = isMonth ? "month" : "year";
@@ -282,11 +315,39 @@ export function DonationTrendsPage() {
       return next;
     });
 
+  // Add/remove a year from the month-view selection (always keep at least one).
+  const toggleYear = (y: number) =>
+    setSelectedYears((prev) =>
+      prev.includes(y)
+        ? prev.length > 1
+          ? prev.filter((v) => v !== y)
+          : prev
+        : [...prev, y]
+    );
+
+  const sortedYears = [...selectedYears].sort((a, b) => a - b);
+  const isMultiYear = selectedYears.length > 1;
+  const isConsecutive = sortedYears.every((y, i) => i === 0 || y === sortedYears[i - 1] + 1);
+  const yearLabel =
+    selectedYears.length === 0
+      ? "Select years"
+      : selectedYears.length === 1
+      ? String(sortedYears[0])
+      : isConsecutive
+      ? `${sortedYears[0]}–${sortedYears[sortedYears.length - 1]} (avg)`
+      : `${sortedYears.join(", ")} (avg)`;
+  const yearRangeText =
+    selectedYears.length <= 1
+      ? String(sortedYears[0] ?? "")
+      : isConsecutive
+      ? `${sortedYears[0]}–${sortedYears[sortedYears.length - 1]}`
+      : sortedYears.join(", ");
+
   const provinceName = selectedProvince
     ? PROVINCES.find((p) => p.code === selectedProvince)?.name ?? selectedProvince
     : "All provinces";
   const subtitle = isMonth
-    ? `Monthly contributions by party — ${selectedYear ?? ""} · ${provinceName}`
+    ? `${isMultiYear ? "Average monthly" : "Monthly"} contributions by party — ${yearRangeText} · ${provinceName}`
     : availableYears.length > 0
     ? `Total contributions by party, ${availableYears[0]}–${availableYears[availableYears.length - 1]} · ${provinceName}`
     : "Total contributions by party";
@@ -322,19 +383,42 @@ export function DonationTrendsPage() {
           </div>
 
           {isMonth && (
-            <label className="trends-year-select">
-              <span>Year</span>
-              <select
-                value={selectedYear ?? ""}
-                onChange={(e) => setSelectedYear(Number(e.target.value))}
-              >
-                {availableYears.map((y) => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="trends-year-select" ref={yearDropdownRef}>
+              <span id="trends-years-label">Years</span>
+              <div className="trends-year-dd">
+                <button
+                  type="button"
+                  className="trends-year-dd-btn"
+                  aria-haspopup="listbox"
+                  aria-expanded={isYearDropdownOpen}
+                  aria-labelledby="trends-years-label"
+                  onClick={() => setIsYearDropdownOpen((o) => !o)}
+                >
+                  <span>{yearLabel}</span>
+                  <span className="trends-year-caret">▾</span>
+                </button>
+                {isYearDropdownOpen && (
+                  <div className="trends-year-menu" role="listbox" aria-multiselectable>
+                    {[...availableYears].reverse().map((y) => {
+                      const on = selectedYears.includes(y);
+                      return (
+                        <button
+                          key={y}
+                          type="button"
+                          role="option"
+                          aria-selected={on}
+                          className={"trends-year-opt" + (on ? " active" : "")}
+                          onClick={() => toggleYear(y)}
+                        >
+                          <span className="trends-year-check">{on ? "✓" : ""}</span>
+                          {y}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
           <label className="trends-year-select">

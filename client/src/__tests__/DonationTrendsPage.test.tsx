@@ -104,6 +104,23 @@ describe("DonationTrendsPage — monthly view", () => {
     await user.selectOptions(provinceSelect, "ON");
     expect(mockedFetchProvinceMonth).toHaveBeenLastCalledWith("ON", 2015);
   });
+
+  it("fetches every selected year and averages when multiple years are picked", async () => {
+    const user = userEvent.setup();
+    render(<DonationTrendsPage />);
+    await screen.findByTestId("line-chart");
+    await user.click(screen.getByRole("tab", { name: "By Month" }));
+
+    // Open the year dropdown and add 2013 alongside the default 2015.
+    await user.click(screen.getByRole("button", { name: "Years" }));
+    await user.click(await screen.findByRole("option", { name: "2013" }));
+
+    expect(mockedFetchMonth).toHaveBeenCalledWith(2015);
+    expect(mockedFetchMonth).toHaveBeenCalledWith(2013);
+    expect(
+      await screen.findByText(/Average monthly contributions by party — 2013, 2015/)
+    ).toBeInTheDocument();
+  });
 });
 
 describe("DonationTrendsPage — chart type", () => {

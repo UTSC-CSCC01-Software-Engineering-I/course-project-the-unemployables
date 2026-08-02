@@ -85,6 +85,77 @@
   cursor: pointer;
 }
 
+/* ── Multi-year dropdown ── */
+.trends-year-dd {
+  position: relative;
+}
+
+.trends-year-dd-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+  color: #16202b;
+  background: #fff;
+  border: 1px solid #d6dadf;
+  border-radius: 7px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.trends-year-caret {
+  color: #6b7480;
+  font-size: 11px;
+}
+
+.trends-year-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  min-width: 140px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #e2e5e9;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(20, 30, 40, 0.12);
+  padding: 4px;
+}
+
+.trends-year-opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2b333c;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.trends-year-opt:hover {
+  background: #f0f1f4;
+}
+
+.trends-year-opt.active {
+  color: #16202b;
+}
+
+.trends-year-check {
+  width: 12px;
+  color: #2d9268;
+  font-size: 12px;
+}
+
 /* ── Legend ── */
 .trends-legend {
   display: flex;
