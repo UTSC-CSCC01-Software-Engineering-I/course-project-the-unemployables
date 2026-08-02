@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildQuery } from "../api/donations";
-import type { DonationFilters } from "../types/index";
+import { buildQuery } from "../../api/donations";
+import type { DonationFilters } from "../../types/index";
 
 describe("buildQuery", () => {
   it("includes advanced research filters and pagination in the query string", () => {

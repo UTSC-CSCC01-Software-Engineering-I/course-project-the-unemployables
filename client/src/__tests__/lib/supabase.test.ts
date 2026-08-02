@@ -11,7 +11,7 @@ vi.mock("@supabase/supabase-js", () => ({
 
 // These imports must come after vi.mock() — importing supabase triggers the
 // module-load call to createClient that the tests below assert on.
-import { supabase as _supabase } from "./supabase";
+import { supabase as _supabase } from "../../lib/supabase";
 import { createClient } from "@supabase/supabase-js";
 
 describe("Supabase client initialization", () => {

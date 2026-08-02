@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { fetchRidingSummary, fetchRidingRankings } from "../api/ridings";
-import type { RidingRankingsResponse, RidingSummary } from "../types/index";
+import { fetchRidingSummary, fetchRidingRankings } from "../../api/ridings";
+import type { RidingRankingsResponse, RidingSummary } from "../../types/index";
 
 const SAMPLE_SUMMARY: RidingSummary = {
   fedNum: 35092,
