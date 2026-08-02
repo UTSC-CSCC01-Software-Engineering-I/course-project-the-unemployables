@@ -267,6 +267,14 @@ export function DonationTrendsPage() {
       .map((party) => ({ party, value: totals[party] }));
   }, [chartData, parties, hidden]);
 
+  // Bars get a fixed per-group width so they stay legible when there are many
+  // periods (e.g. ~20 years); the chart then scrolls sideways instead of being
+  // squeezed to fit. Wider when more parties are visible; `minWidth: 100%` on
+  // the inner element keeps it full-width when only a few groups would underfill.
+  const visiblePartyCount = parties.filter((p) => !hidden.has(p)).length || 1;
+  const barGroupWidth = Math.max(64, visiblePartyCount * 22 + 36);
+  const barChartWidth = chartData.length * barGroupWidth;
+
   const toggle = (code: string) =>
     setHidden((prev) => {
       const next = new Set(prev);
@@ -407,90 +415,99 @@ export function DonationTrendsPage() {
                 <Tooltip formatter={(value) => formatMoney(Number(value))} />
               </PieChart>
             </ResponsiveContainer>
+          ) : chartKind === "bar" ? (
+            <div className="trends-scroll">
+              <div
+                className="trends-scroll-inner"
+                style={{ width: barChartWidth, minWidth: "100%", height: 440 }}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={chartData}
+                    margin={{ top: 16, right: 24, bottom: 8, left: 8 }}
+                    barCategoryGap="18%"
+                  >
+                    <CartesianGrid stroke="#eceef1" vertical={false} />
+                    <XAxis
+                      dataKey={xField}
+                      tickFormatter={isMonth ? (m: number) => MONTH_NAMES[m - 1] ?? String(m) : undefined}
+                      tick={{ fontSize: 12, fill: "#7a828c" }}
+                      tickLine={false}
+                      axisLine={{ stroke: "#e2e5e9" }}
+                      interval={0}
+                    />
+                    <YAxis
+                      tickFormatter={formatMoney}
+                      tick={{ fontSize: 12, fill: "#7a828c" }}
+                      tickLine={false}
+                      axisLine={{ stroke: "#e2e5e9" }}
+                      width={64}
+                    />
+                    <Tooltip
+                      cursor={{ fill: "rgba(120, 130, 140, 0.06)" }}
+                      content={
+                        <ChartTooltip
+                          formatLabel={isMonth ? (m) => MONTH_NAMES[m - 1] ?? String(m) : undefined}
+                        />
+                      }
+                    />
+                    {parties
+                      .filter((party) => !hidden.has(party))
+                      .map((party) => (
+                        <Bar
+                          key={party}
+                          dataKey={party}
+                          fill={partyColor[party]}
+                          isAnimationActive={false}
+                        />
+                      ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           ) : (
             <ResponsiveContainer width="100%" height={440}>
-              {chartKind === "bar" ? (
-                <BarChart
-                  data={chartData}
-                  margin={{ top: 16, right: 24, bottom: 8, left: 8 }}
-                >
-                  <CartesianGrid stroke="#eceef1" vertical={false} />
-                  <XAxis
-                    dataKey={xField}
-                    tickFormatter={isMonth ? (m: number) => MONTH_NAMES[m - 1] ?? String(m) : undefined}
-                    tick={{ fontSize: 12, fill: "#7a828c" }}
-                    tickLine={false}
-                    axisLine={{ stroke: "#e2e5e9" }}
-                  />
-                  <YAxis
-                    tickFormatter={formatMoney}
-                    tick={{ fontSize: 12, fill: "#7a828c" }}
-                    tickLine={false}
-                    axisLine={{ stroke: "#e2e5e9" }}
-                    width={64}
-                  />
-                  <Tooltip
-                    cursor={{ fill: "rgba(120, 130, 140, 0.06)" }}
-                    content={
-                      <ChartTooltip
-                        formatLabel={isMonth ? (m) => MONTH_NAMES[m - 1] ?? String(m) : undefined}
-                      />
-                    }
-                  />
-                  {parties
-                    .filter((party) => !hidden.has(party))
-                    .map((party) => (
-                      <Bar
-                        key={party}
-                        dataKey={party}
-                        fill={partyColor[party]}
-                        isAnimationActive={false}
-                      />
-                    ))}
-                </BarChart>
-              ) : (
-                <LineChart
-                  data={chartData}
-                  margin={{ top: 16, right: 24, bottom: 8, left: 8 }}
-                >
-                  <CartesianGrid stroke="#eceef1" vertical={false} />
-                  <XAxis
-                    dataKey={xField}
-                    tickFormatter={isMonth ? (m: number) => MONTH_NAMES[m - 1] ?? String(m) : undefined}
-                    tick={{ fontSize: 12, fill: "#7a828c" }}
-                    tickLine={false}
-                    axisLine={{ stroke: "#e2e5e9" }}
-                  />
-                  <YAxis
-                    tickFormatter={formatMoney}
-                    tick={{ fontSize: 12, fill: "#7a828c" }}
-                    tickLine={false}
-                    axisLine={{ stroke: "#e2e5e9" }}
-                    width={64}
-                  />
-                  <Tooltip
-                    content={
-                      <ChartTooltip
-                        formatLabel={isMonth ? (m) => MONTH_NAMES[m - 1] ?? String(m) : undefined}
-                      />
-                    }
-                  />
-                  {parties
-                    .filter((party) => !hidden.has(party))
-                    .map((party) => (
-                      <Line
-                        key={party}
-                        type="monotone"
-                        dataKey={party}
-                        stroke={partyColor[party]}
-                        strokeWidth={2.5}
-                        dot={false}
-                        activeDot={{ r: 4, strokeWidth: 2, fill: "#fff", stroke: partyColor[party] }}
-                        isAnimationActive={false}
-                      />
-                    ))}
-                </LineChart>
-              )}
+              <LineChart
+                data={chartData}
+                margin={{ top: 16, right: 24, bottom: 8, left: 8 }}
+              >
+                <CartesianGrid stroke="#eceef1" vertical={false} />
+                <XAxis
+                  dataKey={xField}
+                  tickFormatter={isMonth ? (m: number) => MONTH_NAMES[m - 1] ?? String(m) : undefined}
+                  tick={{ fontSize: 12, fill: "#7a828c" }}
+                  tickLine={false}
+                  axisLine={{ stroke: "#e2e5e9" }}
+                />
+                <YAxis
+                  tickFormatter={formatMoney}
+                  tick={{ fontSize: 12, fill: "#7a828c" }}
+                  tickLine={false}
+                  axisLine={{ stroke: "#e2e5e9" }}
+                  width={64}
+                />
+                <Tooltip
+                  content={
+                    <ChartTooltip
+                      formatLabel={isMonth ? (m) => MONTH_NAMES[m - 1] ?? String(m) : undefined}
+                    />
+                  }
+                />
+                {parties
+                  .filter((party) => !hidden.has(party))
+                  .map((party) => (
+                    <Line
+                      key={party}
+                      type="monotone"
+                      dataKey={party}
+                      stroke={partyColor[party]}
+                      strokeWidth={2.5}
+                      dot={false}
+                      activeDot={{ r: 4, strokeWidth: 2, fill: "#fff", stroke: partyColor[party] }}
+                      isAnimationActive={false}
+                    />
+                  ))}
+              </LineChart>
             </ResponsiveContainer>
           )}
         </div>

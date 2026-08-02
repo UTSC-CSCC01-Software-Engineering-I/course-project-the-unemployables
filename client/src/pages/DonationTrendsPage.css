@@ -129,6 +129,19 @@
   width: 100%;
 }
 
+/* Bar chart can grow wider than the card and scroll sideways so bars stay
+   readable with many periods. The inner element carries the computed width. */
+.trends-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.trends-scroll-inner {
+  /* width + minWidth are set inline (computed from the data). */
+  box-sizing: border-box;
+}
+
 .trends-state {
   display: flex;
   align-items: center;
