@@ -523,42 +523,18 @@ export function MapCNPage() {
                 </div>
               )}
 
-              {/* Year Trend chart — hidden for now
-              <div className="map-info-section">
-                <div className="map-info-section-title">Year Trend</div>
-                {trendLoading ? (
-                  <div className="map-skeleton" style={{ height: 90, borderRadius: 8 }} />
-                ) : trendData && trendData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={100}>
-                    <AreaChart data={trendData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                      <XAxis
-                        dataKey="year"
-                        ticks={[2004, 2010, 2016, 2022]}
-                        tick={{ fontSize: 10, fill: "#aaa" }}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <YAxis hide />
-                      <Tooltip
-                        formatter={(v) => [formatMoney(v as number), "Donations"]}
-                        labelFormatter={(l) => String(l)}
-                        contentStyle={{ fontSize: 12, borderRadius: 6, border: "1px solid #eee" }}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="totalMonetary"
-                        stroke="#238b45"
-                        fill="#e8f5ef"
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="map-info-placeholder">No data</div>
-                )}
-              </div>
-              */}
+              {mode === "provinces" && (
+                <div className="map-info-footer">
+                  <button
+                    type="button"
+                    className="map-info-link-btn"
+                    onClick={() => navigate(`/donation-trends?province=${encodeURIComponent(selected.code)}`)}
+                  >
+                    View more donation trends
+                    <ArrowRight size={14} />
+                  </button>
+                </div>
+              )}
 
               {mode === "ridings" && (
                 <div className="map-info-footer">

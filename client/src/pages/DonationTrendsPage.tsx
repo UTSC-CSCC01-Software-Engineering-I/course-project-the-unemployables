@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   LineChart,
   Line,
@@ -126,8 +127,14 @@ export function DonationTrendsPage() {
   const [selectedYears, setSelectedYears] = useState<number[]>([]);
   const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
   const yearDropdownRef = useRef<HTMLDivElement>(null);
-  // null = All provinces (uses the country-wide sum-by-month endpoint).
-  const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
+  // null = All provinces (uses the country-wide sum-by-month endpoint). Seeded
+  // from a `?province=CODE` query param (e.g. when arriving from the map), but
+  // only when it's a province we actually offer.
+  const [searchParams] = useSearchParams();
+  const [selectedProvince, setSelectedProvince] = useState<string | null>(() => {
+    const p = searchParams.get("province");
+    return p && PROVINCES.some((prov) => prov.code === p) ? p : null;
+  });
 
   const [yearRows, setYearRows] = useState<ChartRow[]>([]);
   // Province-scoped yearly rows (only fetched when a province is picked in year
