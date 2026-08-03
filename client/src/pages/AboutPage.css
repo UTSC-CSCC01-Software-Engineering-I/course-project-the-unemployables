@@ -38,19 +38,6 @@
   line-height: 1.65;
   color: #6b7480;
   max-width: 620px;
-  margin-bottom: 18px;
-}
-
-/* Temporary — remove once the real copy lands. */
-.about-draft-note {
-  display: inline-block;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #8a6100;
-  background: #fdf3d7;
-  border: 1px solid #f2e2ae;
-  border-radius: 8px;
-  padding: 8px 14px;
 }
 
 /* ── Body ── */
@@ -103,37 +90,89 @@
   margin-bottom: 16px;
 }
 
-/* ── Placeholder scaffolding ── */
-.about-placeholder-list {
+.about-subhead {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7480;
+  margin: 24px 0 12px;
+}
+
+/* ── Content lists ── */
+.about-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
-.about-placeholder {
+.about-list li {
   position: relative;
-  font-size: 13px;
-  line-height: 1.55;
-  color: #8a929c;
-  background: #f4f6f8;
-  border: 1px dashed #cfd6de;
-  border-radius: 8px;
-  padding: 9px 12px 9px 34px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: #3d4854;
+  padding-left: 18px;
 }
 
-.about-placeholder::before {
-  content: "TBD";
+.about-list li::before {
+  content: "";
   position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 8.5px;
-  font-weight: 800;
-  letter-spacing: 0.4px;
-  color: #9aa3ad;
+  left: 2px;
+  top: 8px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #9aa9bd;
+}
+
+.about-list strong {
+  color: #16202b;
+  font-weight: 700;
+}
+
+/* ── Glossary ── */
+.about-glossary {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.about-glossary-row {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 16px;
+  align-items: baseline;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.about-glossary-row:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.about-glossary dt {
+  font-size: 13px;
+  font-weight: 700;
+  color: #16202b;
+  line-height: 1.5;
+}
+
+.about-glossary dd {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: #3d4854;
+}
+
+.about-glossary-compact .about-glossary-row {
+  grid-template-columns: 60px 1fr;
+  padding-bottom: 8px;
+  gap: 12px;
 }
 
 /* ── Responsive ── */
@@ -152,5 +191,11 @@
 
   .about-section {
     padding: 22px 20px;
+  }
+
+  .about-glossary-row,
+  .about-glossary-compact .about-glossary-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 }
