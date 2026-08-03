@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
-import { ProtectedRoute } from "../components/ProtectedRoute";
-import { useAuth } from "../context/AuthContext";
+import { ProtectedRoute } from "../../components/ProtectedRoute";
+import { useAuth } from "../../context/AuthContext";
 
 // The guard only cares about what useAuth reports, so we mock it directly
 // rather than standing up a real AuthProvider + Supabase session.
-vi.mock("../context/AuthContext", () => ({
+vi.mock("../../context/AuthContext", () => ({
   useAuth: vi.fn(),
 }));
 

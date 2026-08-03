@@ -3,8 +3,8 @@ import {
   fetchDonationSumByYearParty,
   fetchDonationSumByMonth,
   fetchDonationSumByProvinceYear,
-} from "../api/trends";
-import type { YearPartySumResponse, MonthPartySumResponse } from "../types/index";
+} from "../../api/trends";
+import type { YearPartySumResponse, MonthPartySumResponse } from "../../types/index";
 
 const SAMPLE_YEAR: YearPartySumResponse = {
   data: [{ year: 2015, party: "LPC", total: 100 }],

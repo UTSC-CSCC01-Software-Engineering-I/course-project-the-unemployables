@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { groupByProvince, groupByRiding } from "../utils/groupings";
+import { groupByProvince, groupByRiding } from "../../utils/groupings";
 
 describe("groupByProvince", () => {
   it("sums monetary and donation counts across parties", () => {

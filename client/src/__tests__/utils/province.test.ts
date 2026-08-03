@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { provinceForFedNum, ALL_PROVINCES } from "../utils/province";
+import { provinceForFedNum, ALL_PROVINCES } from "../../utils/province";
 
 describe("provinceForFedNum", () => {
   it("maps known FED_NUM prefixes to the correct province", () => {

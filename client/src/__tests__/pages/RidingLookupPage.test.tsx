@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, within, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { RidingLookupPage } from "../pages/RidingLookupPage";
-import { fetchRidingSummary, fetchRidingRankings } from "../api/ridings";
-import type { RidingRankingsResponse, RidingSummary } from "../types/index";
+import { RidingLookupPage } from "../../pages/RidingLookupPage";
+import { fetchRidingSummary, fetchRidingRankings } from "../../api/ridings";
+import type { RidingRankingsResponse, RidingSummary } from "../../types/index";
 
-vi.mock("../api/ridings", () => ({
+vi.mock("../../api/ridings", () => ({
   fetchRidingSummary: vi.fn(),
   fetchRidingRankings: vi.fn(),
 }));
