@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatMoney, amountToColor, CHOROPLETH_STEPS } from "../utils/mapUtils";
+import { formatMoney, amountToColor, CHOROPLETH_STEPS } from "../../utils/mapUtils";
 
 describe("formatMoney", () => {
   it("formats zero as plain dollars", () => {

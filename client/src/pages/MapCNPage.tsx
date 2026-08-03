@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useNavigate } from "react-router-dom";
 import { Map, MapControls, useMap } from "@/components/ui/map";
 import { InvalidFilterPopUp } from "@/components/ui/invalidFilterPopUp";
-import { X, CalendarRange, ChevronDown, ArrowRight } from "lucide-react";
+import { X, CalendarRange, ChevronDown, ArrowRight, Search } from "lucide-react";
 import "./MapCNPage.css";
 
 type BoundaryMode = "provinces" | "ridings";
@@ -16,6 +16,11 @@ type RegionSummary = {
   donationCount: number;
   donorCount: number;
   byParty?: { party: string; totalMonetary: number; donationCount: number }[];
+};
+
+type GeoFeature = {
+  properties: Record<string, unknown>;
+  geometry: { coordinates: unknown };
 };
 
 const API = "http://localhost:3001";
@@ -43,10 +48,12 @@ function BoundaryLayer({
   mode,
   regionData,
   onSelect,
+  selectedCode,
 }: {
   mode: BoundaryMode;
   regionData: RegionSummary[];
   onSelect: (region: SelectedRegion | null) => void;
+  selectedCode: string | null;
 }) {
   const { map, isLoaded } = useMap();
 
@@ -55,6 +62,8 @@ function BoundaryLayer({
 
     const sourceId = "boundary-source";
     const fillId = "boundary-fill";
+    const selectedFillId = "boundary-selected";
+    const selectedLineId = "boundary-selected-line";
     const hoverFillId = "boundary-hover";
     const lineId = "boundary-line";
 
@@ -68,6 +77,11 @@ function BoundaryLayer({
     map.addSource(sourceId, { type: "geojson", data: url, generateId: true });
     map.addLayer({ id: fillId, type: "fill", source: sourceId,
       paint: { "fill-color": baseColor, "fill-opacity": 0.15 } });
+    // Selected highlight layers (initially invisible — updated in the effect below)
+    map.addLayer({ id: selectedFillId, type: "fill", source: sourceId,
+      paint: { "fill-color": "#ffffff", "fill-opacity": 0 } });
+    map.addLayer({ id: selectedLineId, type: "line", source: sourceId,
+      paint: { "line-color": "#ffffff", "line-width": 2.5, "line-opacity": 0 } });
     map.addLayer({ id: hoverFillId, type: "fill", source: sourceId,
       paint: { "fill-color": baseColor,
         "fill-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 0.3, 0] } });
@@ -105,11 +119,25 @@ function BoundaryLayer({
       try {
         if (map.getLayer(lineId)) map.removeLayer(lineId);
         if (map.getLayer(hoverFillId)) map.removeLayer(hoverFillId);
+        if (map.getLayer(selectedLineId)) map.removeLayer(selectedLineId);
+        if (map.getLayer(selectedFillId)) map.removeLayer(selectedFillId);
         if (map.getLayer(fillId)) map.removeLayer(fillId);
         if (map.getSource(sourceId)) map.removeSource(sourceId);
       } catch { /* ignore */ }
     };
   }, [map, isLoaded, mode, onSelect]);
+
+  // Update the highlight layers whenever the selected region changes.
+  useEffect(() => {
+    if (!map || !isLoaded) return;
+    if (!map.getLayer("boundary-selected")) return;
+    const codeProp = mode === "provinces" ? "province_code" : "FED_NUM";
+    const matchExpr: unknown = selectedCode
+      ? ["==", ["to-string", ["get", codeProp]], selectedCode]
+      : false;
+    map.setPaintProperty("boundary-selected", "fill-opacity", ["case", matchExpr, 0.22, 0]);
+    map.setPaintProperty("boundary-selected-line", "line-opacity", ["case", matchExpr, 0.9, 0]);
+  }, [map, isLoaded, selectedCode, mode]);
 
   // Choropleth coloring
   useEffect(() => {
@@ -132,6 +160,39 @@ function BoundaryLayer({
 }
 
 
+// Flattens any GeoJSON geometry coordinates into [lng, lat] pairs.
+function collectCoords(c: unknown, out: [number, number][] = []): [number, number][] {
+  if (!Array.isArray(c)) return out;
+  if (typeof c[0] === "number") { out.push(c as [number, number]); }
+  else { (c as unknown[]).forEach(item => collectCoords(item, out)); }
+  return out;
+}
+
+// Lives inside <Map> so it can access useMap(). Watches flyToCode and calls
+// fitBounds on the matching GeoJSON feature whenever it changes.
+function FlyToRegion({ flyToCode, features, mode }: {
+  flyToCode: string | null;
+  features: GeoFeature[];
+  mode: BoundaryMode;
+}) {
+  const { map, isLoaded } = useMap();
+  useEffect(() => {
+    if (!map || !isLoaded || !flyToCode || !features.length) return;
+    const codeProp = mode === "provinces" ? "province_code" : "FED_NUM";
+    const feature = features.find(f => String(f.properties[codeProp]) === flyToCode);
+    if (!feature) return;
+    const coords = collectCoords(feature.geometry.coordinates);
+    if (!coords.length) return;
+    const lngs = coords.map(c => c[0]);
+    const lats = coords.map(c => c[1]);
+    map.fitBounds(
+      [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+      { padding: 40, maxZoom: mode === "provinces" ? 7 : 11, duration: 800 }
+    );
+  }, [flyToCode, features, mode, map, isLoaded]);
+  return null;
+}
+
 export function MapCNPage() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<BoundaryMode>("provinces");
@@ -144,6 +205,12 @@ export function MapCNPage() {
   const [isPartyDropdownOpen, setIsPartyDropdownOpen] = useState(false);
   const yearDropdownRef = useRef<HTMLDivElement>(null);
   const partyDropdownRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [geoFeatures, setGeoFeatures] = useState<GeoFeature[]>([]);
+  const [flyToCode, setFlyToCode] = useState<string | null>(null);
 
   const isMultiYear = selectedYears.length > 1;
   const sortedYears = [...selectedYears].sort((a, b) => a - b);
@@ -186,6 +253,40 @@ export function MapCNPage() {
       .finally(() => setLoading(false));
   }, [selectedYears, mode, selectedParty]);
 
+  // Load GeoJSON features for search whenever the boundary mode changes.
+  useEffect(() => {
+    const url = mode === "provinces" ? "/provinces.geojson" : "/ridings.geojson";
+    fetch(url)
+      .then(r => r.json())
+      .then(json => setGeoFeatures(json.features ?? []))
+      .catch(() => {});
+  }, [mode]);
+
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length < 2) return [];
+    const nameProp = mode === "provinces" ? "PRENAME" : "ED_NAMEE";
+    const codeProp = mode === "provinces" ? "province_code" : "FED_NUM";
+    return geoFeatures
+      .filter(f => {
+        const name = String(f.properties[nameProp] ?? "").toLowerCase();
+        const code = String(f.properties[codeProp] ?? "").toLowerCase();
+        return name.includes(q) || code.includes(q);
+      })
+      .slice(0, 8)
+      .map(f => ({
+        name: String(f.properties[nameProp] ?? ""),
+        code: String(f.properties[codeProp] ?? ""),
+      }));
+  }, [searchQuery, geoFeatures, mode]);
+
+  function selectSearchResult(result: { name: string; code: string }) {
+    setSelected(result);
+    setFlyToCode(result.code);
+    setSearchQuery("");
+    setSearchOpen(false);
+  }
+
   // Close dropdowns on outside click.
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -194,6 +295,9 @@ export function MapCNPage() {
       }
       if (partyDropdownRef.current && !partyDropdownRef.current.contains(e.target as Node)) {
         setIsPartyDropdownOpen(false);
+      }
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
       }
     }
     document.addEventListener("mousedown", onClickOutside);
@@ -342,6 +446,38 @@ export function MapCNPage() {
             )}
           </div>
 
+        <div className="map-search" ref={searchRef}>
+          <div className="map-search-input-wrap">
+            <Search size={13} className="map-search-icon" />
+            <input
+              className="map-search-input"
+              placeholder={mode === "provinces" ? "Search province…" : "Search district…"}
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); setSearchOpen(true); }}
+              onFocus={() => setSearchOpen(true)}
+            />
+            {searchQuery && (
+              <button className="map-search-clear" onClick={() => { setSearchQuery(""); setSearchOpen(false); }}>
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          {searchOpen && searchResults.length > 0 && (
+            <div className="map-search-dropdown">
+              {searchResults.map(r => (
+                <button
+                  key={r.code}
+                  className="map-search-option"
+                  onClick={() => selectSearchResult(r)}
+                >
+                  <span className="map-search-option-name">{r.name}</span>
+                  <span className="map-search-option-code">{r.code}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="map-party-picker" ref={partyDropdownRef}>
           <button
             type="button"
@@ -386,7 +522,8 @@ export function MapCNPage() {
         <div className={`map-canvas${loading ? " map-canvas--loading" : ""}`}>
           <Map center={[-96, 62]} zoom={3.2} maxBounds={[[-145, 40], [-45, 86]]} minZoom={2.5} className="h-full w-full">
             <MapControls position="bottom-right" showZoom showCompass />
-            <BoundaryLayer mode={mode} regionData={regionData} onSelect={setSelected} />
+            <BoundaryLayer mode={mode} regionData={regionData} onSelect={setSelected} selectedCode={selected?.code ?? null} />
+            <FlyToRegion flyToCode={flyToCode} features={geoFeatures} mode={mode} />
           </Map>
           {loading && (
             <div className="map-loading-overlay">

@@ -2,16 +2,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { DonationTrendsPage } from "../pages/DonationTrendsPage";
+import { DonationTrendsPage } from "../../pages/DonationTrendsPage";
 import {
   fetchDonationSumByYearParty,
   fetchDonationSumByMonth,
   fetchDonationSumByProvinceMonth,
   fetchDonationSumByProvinceYear,
-} from "../api/trends";
-import type { YearPartySumResponse, MonthPartySumResponse } from "../types/index";
+} from "../../api/trends";
+import type { YearPartySumResponse, MonthPartySumResponse } from "../../types/index";
 
-vi.mock("../api/trends", () => ({
+vi.mock("../../api/trends", () => ({
   fetchDonationSumByYearParty: vi.fn(),
   fetchDonationSumByMonth: vi.fn(),
   fetchDonationSumByProvinceMonth: vi.fn(),
