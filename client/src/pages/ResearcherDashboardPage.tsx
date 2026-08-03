@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, SlidersHorizontal, Eye, Download, ShieldCheck, AlertCircle, X } from "lucide-react";
-import { fetchDonations } from "../api/donations";
+import { fetchDonations, logDownload } from "../api/donations";
 import { supabase } from "../lib/supabase";
 import type { Donation, DonationFilters } from "../types/index";
 
 const PAGE_SIZE = 25;
+
+// bound the advanced filter date range.
+const MIN_YEAR = 2004;
+const MAX_YEAR = 2026;
 
 // Party -> badge color. Extend this if new party values show up in the data
 // (see disclaimer: exact party string values haven't been fully enumerated yet).
@@ -27,10 +31,12 @@ type FilterErrors = {
   amount?: string;
 };
 
-// validates the 3 supported cases:
-// 1. Amount <= 0
-// 2. Date range where "to" precedes "from"
-// 3. Any field left empty -> asks user to fill everything before submitting
+// validates the following cases:
+// 1. Any field left empty -> asks user to fill everything before submitting
+// 2. Date range is within the valid record years (2004–2026)
+// 3. Date range where "to" precedes "from" (first date more recent than second)
+// 4. Amount <= 0 (also catches negative amounts, since <= 0 covers negative too)
+// 5. Amount range where min is greater than max (first amount bigger than second)
 function validateFilters(f: DonationFilters): FilterErrors {
   const errors: FilterErrors = {};
 
@@ -49,14 +55,28 @@ function validateFilters(f: DonationFilters): FilterErrors {
     errors.general = "Please fill in all fields before submitting.";
   }
 
-  if (f.dateFrom && f.dateTo && f.dateTo < f.dateFrom) {
+  // Date range checks: bounds first, then ordering.
+  const fromYear = f.dateFrom ? new Date(f.dateFrom).getFullYear() : undefined;
+  const toYear = f.dateTo ? new Date(f.dateTo).getFullYear() : undefined;
+
+  if (fromYear !== undefined && (fromYear < MIN_YEAR || fromYear > MAX_YEAR)) {
+    errors.dateRange = `Start date must be between ${MIN_YEAR} and ${MAX_YEAR}.`;
+  } else if (toYear !== undefined && (toYear < MIN_YEAR || toYear > MAX_YEAR)) {
+    errors.dateRange = `End date must be between ${MIN_YEAR} and ${MAX_YEAR}.`;
+  } else if (f.dateFrom && f.dateTo && f.dateTo < f.dateFrom) {
     errors.dateRange = "Invalid date range: end date cannot precede start date.";
   }
 
-  const min = f.amountMin !== undefined ? Number(f.amountMin) : undefined;
-  const max = f.amountMax !== undefined ? Number(f.amountMax) : undefined;
-  if ((min !== undefined && min <= 0) || (max !== undefined && max <= 0)) {
+  // Amount checks: positivity first, then ordering.
+  const min = f.amountMin !== undefined && f.amountMin !== ("" as unknown) ? Number(f.amountMin) : undefined;
+  const max = f.amountMax !== undefined && f.amountMax !== ("" as unknown) ? Number(f.amountMax) : undefined;
+
+  if (min !== undefined && (Number.isNaN(min) || min <= 0)) {
     errors.amount = "Amount must be a positive number.";
+  } else if (max !== undefined && (Number.isNaN(max) || max <= 0)) {
+    errors.amount = "Amount must be a positive number.";
+  } else if (min !== undefined && max !== undefined && min > max) {
+    errors.amount = "Minimum amount cannot be greater than maximum amount.";
   }
 
   return errors;
@@ -81,10 +101,10 @@ export function ResearcherDashboardPage() {
     page: 1,
     limit: PAGE_SIZE,
   });
-  //const [filters, setFilters] = useState<DonationFilters>({
-    //page: 1,
-    //limit: PAGE_SIZE,
-  //});
+  // Tracks whether the current submittedFilters came from the quick top-bar
+  // search or the Advanced Filters panel.
+  const [submittedSource, setSubmittedSource] = useState<"quick" | "advanced">("quick");
+
 
   useEffect(() => {
     let active = true;
@@ -120,7 +140,7 @@ export function ResearcherDashboardPage() {
       setLoading(true);
       setError("");
       try {
-        const response = await fetchDonations(submittedFilters);
+        const response = await fetchDonations(submittedFilters, submittedSource);
         if (!active) return;
         setDonations(response.data);
         setTotal(response.total);
@@ -136,7 +156,7 @@ export function ResearcherDashboardPage() {
     return () => {
       active = false;
     };
-  }, [hasSubmitted, submittedFilters]);
+  }, [hasSubmitted, submittedFilters, submittedSource]);
 
   const [advancedFilters, setAdvancedFilters] = useState<DonationFilters>({
     page: 1,
@@ -158,12 +178,13 @@ export function ResearcherDashboardPage() {
     setAdvancedFilters((current) => ({ ...current, [field]: value || undefined }));
   };
 
-  const submit = (nextFilters: DonationFilters) => {
+  const submit = (nextFilters: DonationFilters, source: "quick" | "advanced") => {
     setPage(1);
     setHasSubmitted(true);
     setDonations([]);
     setTotal(0);
     setSubmittedFilters({ ...nextFilters, page: 1, limit: PAGE_SIZE });
+    setSubmittedSource(source);
   };
 
   const submitFilters = (event: React.FormEvent) => {
@@ -172,7 +193,15 @@ export function ResearcherDashboardPage() {
     setValidationErrors(errors);
     setShowErrorBanner(Object.keys(errors).length > 0);
     if (Object.keys(errors).length > 0) return;
-    submit(advancedFilters);
+
+    // nextFilters is captured here as a plain value before we touch any state,
+    // so clearing searchTerm right after cannot affect what actually gets queried.
+    const nextFilters = advancedFilters;
+    submit(nextFilters, "advanced");
+
+    // clear any leftover text in the quick search bar so it doesn't look like 
+    // it's still "active"
+    setSearchTerm("");
   };
 
   const resetFilters = () => {
@@ -186,24 +215,31 @@ export function ResearcherDashboardPage() {
     setTotal(0);
   };
 
-  const submitSearch = (event: React.FormEvent) => {
-    event.preventDefault();
-    const parts = searchTerm.trim().split(/\s+/).filter(Boolean);
+const submitSearch = (event: React.FormEvent) => {
+  event.preventDefault();
+  const parts = searchTerm.trim().split(/\s+/).filter(Boolean);
 
-    let nameOverride: Partial<DonationFilters>;
-    if (parts.length === 0) {
-      nameOverride = { donorName: undefined, firstName: undefined, lastName: undefined };
-    } else if (parts.length === 1) {
-      nameOverride = { donorName: parts[0], firstName: undefined, lastName: undefined };
-    } else {
-      const [first, ...rest] = parts;
-      nameOverride = { firstName: first, lastName: rest.join(" "), donorName: undefined };
-    }
+  let nameOverride: Partial<DonationFilters>;
+  if (parts.length === 0) {
+    nameOverride = { donorName: undefined, firstName: undefined, lastName: undefined };
+  } else if (parts.length === 1) {
+    nameOverride = { donorName: parts[0], firstName: undefined, lastName: undefined };
+  } else {
+    const [first, ...rest] = parts;
+    nameOverride = { firstName: first, lastName: rest.join(" "), donorName: undefined };
+  }
 
-    // Merges with whatever's in the advanced panel for this one query,
-    // but never writes into advancedFilters — so the advanced inputs stay untouched.
-    submit({ ...advancedFilters, ...nameOverride });
-  };
+  // Quick search stands entirely on its own.
+  const nextFilters: DonationFilters = { ...nameOverride };
+  submit(nextFilters, "quick");
+
+  // A quick search just ran — clear the advanced filters panel so any old
+  // text sitting in there doesn't confuse the user into thinking it's still
+  // part of what's being searched.
+  setAdvancedFilters({ page: 1, limit: PAGE_SIZE });
+  setValidationErrors({});
+  setShowErrorBanner(false);
+};
 
   function toCsv(rows: Donation[]): string {
     const headers = ["Donor Name", "Political Party", "Amount", "Date", "Postal Code", "City", "Type"];
@@ -262,6 +298,9 @@ export function ResearcherDashboardPage() {
     link.remove();
     URL.revokeObjectURL(url);
     setShowDownloadDialog(false);
+
+    // Record the download for the audit trail.
+    void logDownload({ scope: downloadScope, filters: submittedFilters, rowCount: rows.length });
   };
 
   return (
@@ -283,6 +322,8 @@ export function ResearcherDashboardPage() {
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span>
                 {validationErrors.general ??
+                  validationErrors.dateRange ??
+                  validationErrors.amount ??
                   "One or more filters contain invalid values. Please correct them before applying."}
               </span>
             </div>
@@ -336,6 +377,8 @@ export function ResearcherDashboardPage() {
                   <div className="flex items-center gap-2">
                     <input
                       type="date"
+                      min={`${MIN_YEAR}-01-01`}
+                      max={`${MAX_YEAR}-12-31`}
                       value={advancedFilters.dateFrom ?? ""}
                       onChange={(event) => updateFilter("dateFrom", event.target.value)}
                       className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
@@ -347,6 +390,8 @@ export function ResearcherDashboardPage() {
                     <span className="text-sm text-gray-400">to</span>
                     <input
                       type="date"
+                      min={`${MIN_YEAR}-01-01`}
+                      max={`${MAX_YEAR}-12-31`}
                       value={advancedFilters.dateTo ?? ""}
                       onChange={(event) => updateFilter("dateTo", event.target.value)}
                       className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${
@@ -404,6 +449,7 @@ export function ResearcherDashboardPage() {
                   <div className="flex items-center gap-2">
                     <input
                       type="number"
+                      min={0}
                       placeholder="$ Min"
                       value={advancedFilters.amountMin ?? ""}
                       onChange={(event) => updateFilter("amountMin", event.target.value)}
@@ -416,6 +462,7 @@ export function ResearcherDashboardPage() {
                     <span className="text-sm text-gray-400">–</span>
                     <input
                       type="number"
+                      min={0}
                       placeholder="$ Max"
                       value={advancedFilters.amountMax ?? ""}
                       onChange={(event) => updateFilter("amountMax", event.target.value)}

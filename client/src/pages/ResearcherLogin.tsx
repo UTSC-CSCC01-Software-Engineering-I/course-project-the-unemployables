@@ -3,6 +3,7 @@ import { Mail, LockKeyholeIcon, KeyIcon, Info, ArrowLeft } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Footer } from "@/components/layout/Footer";
 import { supabase } from "@/lib/supabase";
+import { logLogin } from "@/api/auth";
 import './ResearcherLogin.css'
 
 export function ResearcherLoginUIpage() {
@@ -36,6 +37,9 @@ export function ResearcherLoginUIpage() {
       setErrorMessage(error.message);
       return;
     }
+
+    // Record the login for the audit trail
+    void logLogin();
 
     // Send the user back to the page that bounced them here, or home if they
     // came to the login page directly.

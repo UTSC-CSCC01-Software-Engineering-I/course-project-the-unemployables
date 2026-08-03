@@ -32,13 +32,13 @@ export function buildQuery(filters: DonationFilters & { page?: number; limit?: n
 // access token from Supabase auth, if available. This is used to authenticate requests 
 // to the server API for specific researcher access. If the user is not signed in, it will 
 // just make a regular fetch request without the auth header.
-async function withAuth(url: string): Promise<Response> {
+export async function withAuth(url: string, init: RequestInit = {}): Promise<Response> {
   const { data, error } = await (await import("@/lib/supabase")).supabase.auth.getSession();
   console.log("session on request:", url, { hasToken: !!data.session?.access_token, error });
   const token = data.session?.access_token;
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...(init.headers as Record<string, string> | undefined) };
   if (token) headers.Authorization = `Bearer ${token}`;
-  return fetch(url, { headers });
+  return fetch(url, { ...init, headers });
 }
 
 export async function fetchDonationSummary(
@@ -49,10 +49,15 @@ export async function fetchDonationSummary(
   return res.json() as Promise<SummaryResponse>;
 }
 
+// source tells the server whether this came from the quick top-bar search or
+// the Advanced Filters panel, purely so the access log can tell them apart.
 export async function fetchDonations(
-  filters: DonationFilters & { page?: number; limit?: number } = {}
+  filters: DonationFilters & { page?: number; limit?: number } = {},
+  source?: "quick" | "advanced"
 ): Promise<PaginatedResponse<Donation>> {
-  const res = await withAuth(`${BASE}/donations${buildQuery(filters)}`);
+  const qs = buildQuery(filters);
+  const sourceParam = source ? (qs ? `&source=${source}` : `?source=${source}`) : "";
+  const res = await withAuth(`${BASE}/donations${qs}${sourceParam}`);
   if (!res.ok) {
     const payload = await res.json().catch(() => ({}));
     throw new Error(payload.error ?? `Failed to fetch donations: ${res.status}`);
@@ -60,3 +65,22 @@ export async function fetchDonations(
   return res.json() as Promise<PaginatedResponse<Donation>>;
 }
 
+// tells the server a CSV download happened, for the access log.
+// if this fails, it shouldn't stop the user's download or throw an error in their face.
+export async function logDownload(payload: {
+  scope: "current" | "range" | "all";
+  filters: DonationFilters;
+  rowCount: number;
+}): Promise<void> {
+  try {
+    // we use withAuth here so the server can verify the researcher is still 
+    // logged in and authorized to log this download.
+    await withAuth(`${BASE}/donations/log-download`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    console.error("Failed to log download:", err);
+  }
+}
