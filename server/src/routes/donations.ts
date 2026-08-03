@@ -5,8 +5,8 @@ import type {
   Party,
   Province,
 } from "../types/index";
-import { createClient } from "@supabase/supabase-js";
 import { getSupabase } from "../lib/supabase";
+import { getResearcherId, logAccess } from "../lib/auth";
 
 const router = Router();
 
@@ -61,47 +61,14 @@ export function validateFilters(query: Request["query"]) {
   return errors;
 }
 
-// Get the researcher ID from the request's authorization header, 
-// returning null if not authorized or not a valid researcher.
-async function getResearcherId(req: Request) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith("Bearer ")) return null;
-
-  const accessToken = authHeader.replace("Bearer ", "").trim();
-  const supabase = createClient(process.env["SUPABASE_URL"] ?? "", process.env["SUPABASE_ANON_KEY"] ?? "", {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
-  const { data, error } = await supabase.auth.getUser(accessToken);
-  if (error || !data.user) return null;
-
-  const serviceSupabase = getSupabase();
-  const { data: researcherRow, error: researcherError } = await serviceSupabase
-    .from("researchers")
-    .select("id")
-    .eq("id", data.user.id)
-    .eq("approved", true)
-    .maybeSingle();
-
-  if (researcherError || !researcherRow) return null;
-  return researcherRow.id as string;
-}
-
-// this is just a temporary logging function so that I can see what is 
-// happening on the server side.
-async function logAccess(
-  researcherId: string,
-  actionType: string,
-  filters: Record<string, unknown>,
-  recordsReturnedCount: number
-) {
-  const serviceSupabase = getSupabase();
-  await serviceSupabase.from("access_logs").insert({
-    researcher_id: researcherId,
-    action_type: actionType,
-    filters_used: filters,
-    records_returned_count: recordsReturnedCount,
-  });
+// Figures out which action_type to log for a search: whether it came from the
+// quick top-bar search or the Advanced Filters panel, distinguishing both from
+// a plain donor-name lookup.
+function resolveActionType(query: Request["query"], hasDonorFilter: boolean): string {
+  const source = typeof query.source === "string" ? query.source : undefined;
+  if (source === "advanced") return "advanced_filter_search";
+  if (source === "quick") return "quick_search";
+  return hasDonorFilter ? "donor_search" : "search";
 }
 
 // Filters used in both routes and in the access log.
@@ -187,6 +154,8 @@ router.get("/summary", async (req: Request, res: Response) => {
     const { data, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
 
+    await logAccess(researcherId, "summary_view", filters, data?.length ?? 0);
+
     res.json({ data: data ?? [], filters });
   } catch (err) {
     console.error("GET /donations/summary failed:", err);
@@ -221,11 +190,37 @@ router.get("/", async (req: Request, res: Response) => {
     const { data, count, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
 
-    await logAccess(researcherId, filters.donorName ? "donor_search" : "search", filters, data?.length ?? 0);
+    await logAccess(researcherId, resolveActionType(req.query, Boolean(filters.donorName)), filters, data?.length ?? 0);
 
     res.json({ data: (data ?? []).map(toDonationRow), total: count ?? 0, filters });
   } catch (err) {
     console.error("GET /donations failed:", err);
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown server error" });
+  }
+});
+
+// POST /api/donations/log-download
+// The CSV itself is built entirely client-side from rows the client already
+// fetched
+router.post("/log-download", async (req: Request, res: Response) => {
+  try {
+    // we use getResearcherId here so the server can verify the researcher is still
+    // logged in and authorized to log this download.
+    const researcherId = await getResearcherId(req);
+    if (!researcherId) return res.status(403).json({ error: "Access denied" });
+
+    const { scope, filters, rowCount } = req.body ?? {};
+    if (typeof rowCount !== "number") {
+      return res.status(400).json({ error: "rowCount is required" });
+    }
+    // we don't validate the filters here because this is just a 
+    // logging endpoint, and the filters are already validated when the 
+    // client fetches the donations. We just log whatever the client sends, even 
+    // if it's invalid or missing.
+    await logAccess(researcherId, "export", { scope, ...(filters ?? {}) }, rowCount);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("POST /donations/log-download failed:", err);
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown server error" });
   }
 });
