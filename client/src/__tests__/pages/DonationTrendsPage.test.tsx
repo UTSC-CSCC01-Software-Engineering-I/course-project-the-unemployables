@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { DonationTrendsPage } from "../../pages/DonationTrendsPage";
 import {
   fetchDonationSumByYearParty,
@@ -25,6 +26,15 @@ vi.mock("recharts", () => ({
   Line: () => null, Bar: () => null, Pie: () => null, Cell: () => null,
   XAxis: () => null, YAxis: () => null, CartesianGrid: () => null, Tooltip: () => null,
 }));
+
+// The page uses useSearchParams, so it must render inside a Router.
+function renderPage(initialRoute = "/donation-trends") {
+  return render(
+    <MemoryRouter initialEntries={[initialRoute]}>
+      <DonationTrendsPage />
+    </MemoryRouter>
+  );
+}
 
 const mockedFetchYear = vi.mocked(fetchDonationSumByYearParty);
 const mockedFetchMonth = vi.mocked(fetchDonationSumByMonth);
@@ -61,7 +71,7 @@ describe("DonationTrendsPage — loading state", () => {
   it("shows a loading message while the yearly request is pending", async () => {
     let resolveFn!: (value: YearPartySumResponse) => void;
     mockedFetchYear.mockReturnValue(new Promise(resolve => { resolveFn = resolve; }));
-    render(<DonationTrendsPage />);
+    renderPage();
     expect(screen.getByText("Loading donation trends…")).toBeInTheDocument();
     await act(async () => { resolveFn(YEAR_RESPONSE); });
     expect(await screen.findByTestId("line-chart")).toBeInTheDocument();
@@ -70,7 +80,7 @@ describe("DonationTrendsPage — loading state", () => {
 
 describe("DonationTrendsPage — yearly view (default)", () => {
   it("renders the header and a year-range subtitle once data loads", async () => {
-    render(<DonationTrendsPage />);
+    renderPage();
     expect(screen.getByRole("heading", { name: "Donation Trends" })).toBeInTheDocument();
     expect(await screen.findByText(/Total contributions by party, 2013.2015/)).toBeInTheDocument();
   });
@@ -79,7 +89,7 @@ describe("DonationTrendsPage — yearly view (default)", () => {
 describe("DonationTrendsPage — error state", () => {
   it("shows an error message instead of a chart when the fetch rejects", async () => {
     mockedFetchYear.mockRejectedValue(new Error("Network exploded"));
-    render(<DonationTrendsPage />);
+    renderPage();
     expect(await screen.findByText("Network exploded")).toBeInTheDocument();
     expect(screen.queryByTestId("line-chart")).not.toBeInTheDocument();
   });
@@ -88,7 +98,7 @@ describe("DonationTrendsPage — error state", () => {
 describe("DonationTrendsPage — monthly view", () => {
   it("switches to monthly data for the default (latest) year when 'By Month' is clicked", async () => {
     const user = userEvent.setup();
-    render(<DonationTrendsPage />);
+    renderPage();
     await screen.findByTestId("line-chart");
     await user.click(screen.getByRole("tab", { name: "By Month" }));
     expect(mockedFetchMonth).toHaveBeenCalledWith(2015);
@@ -97,19 +107,52 @@ describe("DonationTrendsPage — monthly view", () => {
 
   it("uses the province-scoped endpoint when a province is selected", async () => {
     const user = userEvent.setup();
-    render(<DonationTrendsPage />);
+    renderPage();
     await screen.findByTestId("line-chart");
     await user.click(screen.getByRole("tab", { name: "By Month" }));
     const provinceSelect = await screen.findByLabelText("Province");
     await user.selectOptions(provinceSelect, "ON");
     expect(mockedFetchProvinceMonth).toHaveBeenLastCalledWith("ON", 2015);
   });
+
+  it("fetches every selected year and averages when multiple years are picked", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByTestId("line-chart");
+    await user.click(screen.getByRole("tab", { name: "By Month" }));
+
+    // Open the year dropdown and add 2013 alongside the default 2015.
+    await user.click(screen.getByRole("button", { name: "Years" }));
+    await user.click(await screen.findByRole("option", { name: "2013" }));
+
+    expect(mockedFetchMonth).toHaveBeenCalledWith(2015);
+    expect(mockedFetchMonth).toHaveBeenCalledWith(2013);
+    expect(
+      await screen.findByText(/Average monthly contributions by party — 2013, 2015/)
+    ).toBeInTheDocument();
+  });
+});
+
+describe("DonationTrendsPage — province from query param", () => {
+  it("preselects the province from ?province= and uses the scoped year endpoint", async () => {
+    renderPage("/donation-trends?province=ON");
+    await screen.findByTestId("line-chart");
+    expect(screen.getByLabelText("Province")).toHaveValue("ON");
+    expect(mockedFetchProvinceYear).toHaveBeenCalledWith("ON");
+  });
+
+  it("ignores an unknown province code and defaults to All", async () => {
+    renderPage("/donation-trends?province=ZZ");
+    await screen.findByTestId("line-chart");
+    expect(screen.getByLabelText("Province")).toHaveValue("");
+    expect(mockedFetchProvinceYear).not.toHaveBeenCalled();
+  });
 });
 
 describe("DonationTrendsPage — chart type", () => {
   it("switches to a bar chart when Bar is selected", async () => {
     const user = userEvent.setup();
-    render(<DonationTrendsPage />);
+    renderPage();
     await screen.findByTestId("line-chart");
     await user.click(screen.getByRole("tab", { name: "Bar" }));
     expect(await screen.findByTestId("bar-chart")).toBeInTheDocument();
