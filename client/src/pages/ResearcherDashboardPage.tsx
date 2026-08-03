@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, SlidersHorizontal, Eye, Download, ShieldCheck, AlertCircle, X } from "lucide-react";
-import { fetchDonations } from "../api/donations";
+import { fetchDonations, logDownload } from "../api/donations";
 import { supabase } from "../lib/supabase";
 import type { Donation, DonationFilters } from "../types/index";
 
@@ -81,10 +81,10 @@ export function ResearcherDashboardPage() {
     page: 1,
     limit: PAGE_SIZE,
   });
-  //const [filters, setFilters] = useState<DonationFilters>({
-    //page: 1,
-    //limit: PAGE_SIZE,
-  //});
+  // Tracks whether the current submittedFilters came from the quick top-bar
+  // search or the Advanced Filters panel.
+  const [submittedSource, setSubmittedSource] = useState<"quick" | "advanced">("quick");
+
 
   useEffect(() => {
     let active = true;
@@ -120,7 +120,7 @@ export function ResearcherDashboardPage() {
       setLoading(true);
       setError("");
       try {
-        const response = await fetchDonations(submittedFilters);
+        const response = await fetchDonations(submittedFilters, submittedSource);
         if (!active) return;
         setDonations(response.data);
         setTotal(response.total);
@@ -136,7 +136,7 @@ export function ResearcherDashboardPage() {
     return () => {
       active = false;
     };
-  }, [hasSubmitted, submittedFilters]);
+  }, [hasSubmitted, submittedFilters, submittedSource]);
 
   const [advancedFilters, setAdvancedFilters] = useState<DonationFilters>({
     page: 1,
@@ -158,12 +158,13 @@ export function ResearcherDashboardPage() {
     setAdvancedFilters((current) => ({ ...current, [field]: value || undefined }));
   };
 
-  const submit = (nextFilters: DonationFilters) => {
+  const submit = (nextFilters: DonationFilters, source: "quick" | "advanced") => {
     setPage(1);
     setHasSubmitted(true);
     setDonations([]);
     setTotal(0);
     setSubmittedFilters({ ...nextFilters, page: 1, limit: PAGE_SIZE });
+    setSubmittedSource(source);
   };
 
   const submitFilters = (event: React.FormEvent) => {
@@ -172,7 +173,7 @@ export function ResearcherDashboardPage() {
     setValidationErrors(errors);
     setShowErrorBanner(Object.keys(errors).length > 0);
     if (Object.keys(errors).length > 0) return;
-    submit(advancedFilters);
+    submit(advancedFilters, "advanced");
   };
 
   const resetFilters = () => {
@@ -202,7 +203,7 @@ export function ResearcherDashboardPage() {
 
     // Merges with whatever's in the advanced panel for this one query,
     // but never writes into advancedFilters — so the advanced inputs stay untouched.
-    submit({ ...advancedFilters, ...nameOverride });
+    submit({ ...advancedFilters, ...nameOverride }, "quick");
   };
 
   function toCsv(rows: Donation[]): string {
@@ -262,6 +263,9 @@ export function ResearcherDashboardPage() {
     link.remove();
     URL.revokeObjectURL(url);
     setShowDownloadDialog(false);
+
+    // Record the download for the audit trail.
+    void logDownload({ scope: downloadScope, filters: submittedFilters, rowCount: rows.length });
   };
 
   return (
