@@ -64,7 +64,7 @@ export function validateFilters(query: Request["query"]) {
 // Figures out which action_type to log for a search: whether it came from the
 // quick top-bar search or the Advanced Filters panel, distinguishing both from
 // a plain donor-name lookup.
-function resolveActionType(query: Request["query"], hasDonorFilter: boolean): string {
+export function resolveActionType(query: Request["query"], hasDonorFilter: boolean): string {
   const source = typeof query.source === "string" ? query.source : undefined;
   if (source === "advanced") return "advanced_filter_search";
   if (source === "quick") return "quick_search";
