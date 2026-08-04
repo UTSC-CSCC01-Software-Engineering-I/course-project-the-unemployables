@@ -49,3 +49,20 @@ Faris: vs-average comparison, province filter, and compare mode to the Riding Lo
 ### Other notes
 Meeting time: Lasted for 45 minutes on Wednesday July 14.
 
+# Meeting 4
+
+Discussion about what to build for Demo 4 and splitting up remaining features.
+
+## Tasks
+Ayyash: Add search to the map so users can jump directly to a province or electoral district, and highlight the selected region visually on the map.
+
+Akshayan: Add logging to the researcher dashboard, and add a download records feature.
+
+Faris: Improve navigation with a collapsible navbar, add a 404 page for unknown routes, and improve the home page.
+
+Tri: Make other UI enchancements as well as the user guide.
+
+Tareq: Write additional tests for more coverage.
+### Other notes
+Meeting time: Lasted for 40 minutes on Wednesday July 28.
+
