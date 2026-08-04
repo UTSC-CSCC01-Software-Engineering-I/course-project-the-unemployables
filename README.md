@@ -58,6 +58,7 @@ An interactive web application for exploring Canadian federal political donation
 - [Demo 2 Documentation](docs/Demo2Docs.md) — Updated class diagram, Demo 2 status
 - [Demo 3 Documentation](docs/Demo3Docs.md) — Updated class diagram, Demo 3 status
 - [Demo 4 Documentation](docs/Demo4Docs.md) — Updated class diagram, Demo 4 status
+- [Grading Instructions](docs/GradingInstructions.md) — How to run the app and verify all features
 - [Meeting Minutes](meetings/meetings.md)
 
 ---

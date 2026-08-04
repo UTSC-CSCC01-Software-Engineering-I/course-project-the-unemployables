@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useNavigate } from "react-router-dom";
 import { Map, MapControls, useMap } from "@/components/ui/map";
-import { InvalidFilterPopUp } from "@/components/ui/invalidFilterPopUp";
 import { X, CalendarRange, ChevronDown, ArrowRight, Search } from "lucide-react";
 import "./MapCNPage.css";
 
@@ -397,8 +396,6 @@ export function MapCNPage() {
 
   return (
     <div className="map-page">
-      <InvalidFilterPopUp />
-
       <div className="map-toolbar">
         <div className="map-toggle">
           <button className={mode === "provinces" ? "active" : ""} onClick={() => { setMode("provinces"); setSelected(null); }}>
