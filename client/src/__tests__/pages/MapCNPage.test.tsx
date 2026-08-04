@@ -15,6 +15,13 @@ vi.mock("@/components/ui/map", () => ({
 
 const mockFetch = vi.fn();
 
+// The map page also fetches the .geojson files for its search box, so a given
+// endpoint won't always be the most recent call. Match against every call
+// instead of just the last one.
+function fetchedUrls(): string[] {
+  return mockFetch.mock.calls.map((c) => c[0] as string);
+}
+
 function renderMap() {
   return render(
     <MemoryRouter>
@@ -39,10 +46,9 @@ describe("MapCNPage", () => {
 
   it("requests the province summary for the default year on load", async () => {
     renderMap();
-    await waitFor(() => expect(mockFetch).toHaveBeenCalled());
-    const url = mockFetch.mock.calls.at(-1)![0] as string;
-    expect(url).toContain("/api/provinces/summary");
-    expect(url).toContain("year=2022");
+    await waitFor(() =>
+      expect(fetchedUrls().some((u) => u.includes("/api/provinces/summary") && u.includes("year=2022"))).toBe(true)
+    );
   });
 
   it("switches to the ridings endpoint when Electoral Districts is picked", async () => {
@@ -52,10 +58,9 @@ describe("MapCNPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Electoral Districts" }));
 
-    await waitFor(() => {
-      const url = mockFetch.mock.calls.at(-1)![0] as string;
-      expect(url).toContain("/api/ridings/summary");
-    });
+    await waitFor(() =>
+      expect(fetchedUrls().some((u) => u.includes("/api/ridings/summary"))).toBe(true)
+    );
     // The empty-panel copy follows the mode.
     expect(screen.getByText(/Click a district to see details/i)).toBeInTheDocument();
   });
