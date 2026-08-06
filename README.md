@@ -59,6 +59,8 @@ An interactive web application for exploring Canadian federal political donation
 - [Demo 3 Documentation](docs/Demo3Docs.md) — Updated class diagram, Demo 3 status
 - [Demo 4 Documentation](docs/Demo4Docs.md) — Updated class diagram, Demo 4 status
 - [Grading Instructions](docs/GradingInstructions.md) — How to run the app and verify all features
+- [User Guide](docs/CDMP_User_Guide.pdf) — Guide for new users covering all features
+- [Team Reflections](docs/Team%20Reflections.pdf) — Engineering practices, challenges, and retrospective
 - [Meeting Minutes](meetings/meetings.md)
 
 ---
